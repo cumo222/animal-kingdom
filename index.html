@@ -3,21 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="动物王国 Animal Kingdom - 国家战争防御题材的可爱动物军队合成游戏主页">
+<meta name="description" content="动物王国 Animal Kingdom - 国家战争防御题材的可爱动物军队·肉鸽构筑·合成升星游戏">
 <title>动物王国 · 国家战争防御</title>
 <!--
   =====================================================================
-  动物王国 Animal Kingdom - 游戏首页（主菜单界面）
+  动物王国 Animal Kingdom - 完整游戏（单文件可运行）
   ---------------------------------------------------------------------
   更新说明（每次更新代码都必须维护本注释块）：
-  v0.1.0  2026-10-13  首次实现：
-    - 首页主菜单界面（可爱动物军队/治愈系卡通乐园风）
-    - 入场加载画面（呼应「加载所有插件与技能」）
-    - 系统入口：开始游戏 / 军队图鉴 / 关卡章节 / 商店 / 设置
-    - 军队图鉴内置已确认设计的「铁牛盾卫」「白羊医官」两份卡牌
-    - 章节选择展示四章 + 无限模式
-    - 响应式：320px ~ 2560px 均无横向溢出
-    - 全部状态使用内存 store，满足沙箱 iframe 运行时约束
+  v1.0.0  2026-10-13  正式制作全部游戏（完整可玩版）：
+    - 五个完整回合阶段：①回合开始（驻军被动/维持费）→ ②合成/操作
+      （三合一升星·同名叠放·部署）→ ③商店窗口（军队三选一/补给/刷新）
+      → ④敌人推进攻击（先前排→中排→后勤，含延后与波次）→ ⑤回合结算
+    - 军队数据：铁牛盾卫 / 白羊医官 1-3 星全数值（仅使用已确认设计）：
+      铜皮减伤、牛角冲撞（3星全体）、犟脾气天赋；
+      羊毛治愈、温暖咩叫、羊毛丰收天赋；同名叠放 +1/+1 无上限
+    - 章节流程：第 1 章草原兽潮 8 关完整可玩（开局 4 土地 / 初始卡包
+      五选二 / 第 4 关精英 +1 土地 / 第 6 关事件 / 第 8 关 Boss 草原狼王）；
+      第 2-4 章与无限模式按已确认结构呈现并标注占位
+    - 双货币经济：金币（招募/买卡/买地/道具）、粮食（军队每回合维持费），
+      关卡奖励结算、商店刷新、普通关送卡包
+    - 设置（音乐/音效/震动/画质/语言）、暂停菜单、帮助教学、战报日志、
+      Toast、键盘 Esc、reduced-motion；状态全部走内存 store
+    - 敌人/价格/起始资源为本轮制作的基础占位数值，UI 内标注可调，
+      不冒充已确认设计
   ---------------------------------------------------------------------
   视觉契约（设计假设 design-hypothesis）：
     - 风格：治愈系卡通乐园（奶油天空 + 翠绿草地 + 暖白木纹面板）
@@ -48,12 +56,16 @@
   --ink-soft: #8A6F55;       /* 次要文字 */
   --ink-faint: #B39A7D;      /* 弱文字 */
   --white: #FFFFFF;
+  --hp: #4E9D5B;             /* 血量绿 */
+  --atk: #E2604B;            /* 攻击红 */
+  --gold: #FFC94D;           /* 金币 */
+  --food: #8ED081;           /* 粮食 */
   --radius-lg: 28px;         /* 大圆角：面板/英雄按钮 */
   --radius-md: 18px;         /* 中圆角：菜单卡 */
   --radius-sm: 12px;         /* 小圆角：标签 */
   --shadow-card: 0 10px 0 rgba(122, 92, 52, 0.18), 0 18px 30px rgba(62, 94, 46, 0.16); /* 卡通厚阴影 */
   --shadow-btn: 0 6px 0 rgba(122, 92, 52, 0.22), 0 10px 16px rgba(62, 94, 46, 0.14);
-  --font: "Varela Round", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
 }
 
 /* =====================================================================
@@ -71,582 +83,325 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* 按钮 / 卡片统一去掉默认外观，由自定义样式接管 */
-button {
-  font-family: inherit;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: inherit;
-}
+button { font-family: inherit; border: none; background: none; cursor: pointer; color: inherit; }
 
-/* 可见焦点环：键盘用户可辨识当前聚焦项（无障碍） */
-:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: var(--radius-sm);
-}
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-sm); }
 
-/* 隐藏元素工具类 */
 .hidden { display: none !important; }
 
 /* =====================================================================
-   3. 背景层：天空、云朵、太阳、远山、草地、树木
-   所有装饰均为内联 SVG 或纯 CSS，不引入任何外部资源。
+   3. 背景层：天空、云朵、太阳、草地、树木（全部内联 CSS）
    ===================================================================== */
-.sky {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;         /* 装饰层不拦截点击 */
-  overflow: hidden;
-}
-
-/* 太阳：右上角柔和光斑 */
-.sun {
-  position: absolute;
-  top: 4vh;
-  right: 6vw;
-  width: clamp(64px, 9vw, 120px);
-  height: clamp(64px, 9vw, 120px);
-  background: radial-gradient(circle, #FFF2A8 0%, #FFD96B 60%, rgba(255, 217, 107, 0) 72%);
-  border-radius: 50%;
-  opacity: 0.85;
-}
-
-/* 云朵：纯 CSS 圆角组合，带轻微漂浮动画 */
-.cloud {
-  position: absolute;
-  width: 120px;
-  height: 44px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 999px;
-  filter: drop-shadow(0 6px 6px rgba(76, 120, 150, 0.18));
-  animation: drift 16s ease-in-out infinite;
-}
-.cloud::before,
-.cloud::after {
-  content: "";
-  position: absolute;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 50%;
-}
+.sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.sun { position: absolute; top: 4vh; right: 6vw; width: clamp(64px, 9vw, 120px); height: clamp(64px, 9vw, 120px);
+  background: radial-gradient(circle, #FFF2A8 0%, #FFD96B 60%, rgba(255, 217, 107, 0) 72%); border-radius: 50%; opacity: 0.85; }
+.cloud { position: absolute; width: 120px; height: 44px; background: rgba(255, 255, 255, 0.9);
+  border-radius: 999px; filter: drop-shadow(0 6px 6px rgba(76, 120, 150, 0.18)); animation: drift 16s ease-in-out infinite; }
+.cloud::before, .cloud::after { content: ""; position: absolute; background: rgba(255, 255, 255, 0.95); border-radius: 50%; }
 .cloud::before { width: 52px; height: 52px; top: -26px; left: 18px; }
 .cloud::after  { width: 38px; height: 38px; top: -18px; right: 18px; }
 .cloud-1 { top: 12%; left: 8%;  animation-delay: 0s; }
 .cloud-2 { top: 22%; left: 58%; animation-delay: -5s; transform: scale(0.8); }
 .cloud-3 { top: 7%;  left: 34%; animation-delay: -9s; transform: scale(0.65); }
-
-/* 地面：草地两层 + 前景草丛、石头、小树 */
-.ground {
-  position: fixed;
-  inset: auto 0 0 0;
-  height: 42%;
-  z-index: 0;
-  pointer-events: none;
+@keyframes drift { 0%,100% { translate: 0 0; } 50% { translate: 26px -8px; } }
+.ground { position: fixed; inset: auto 0 0 0; height: 42%; z-index: 0; pointer-events: none;
   background: linear-gradient(180deg, var(--grass-light) 0%, var(--grass-dark) 100%);
-  border-radius: 46% 38% 0 0 / 22% 18% 0 0; /* 地平线微微弧形，增加乐园感 */
-}
-
-/* 点缀小树：SVG 已在 HTML 中直接书写，这里只定义定位 */
+  border-radius: 46% 38% 0 0 / 22% 18% 0 0; }
 .deco-tree { position: absolute; bottom: 8%; }
 .deco-tree.t1 { right: 5%; width: clamp(70px, 10vw, 150px); }
 .deco-tree.t2 { left: 4%;  width: clamp(56px, 8vw, 120px); bottom: 12%; }
-
-/* 前景草丛与石头：同样为 SVG，仅控制位置 */
 .deco-bush { position: absolute; bottom: 5%; }
 .deco-bush.b1 { left: 12%; width: clamp(64px, 9vw, 140px); }
 .deco-bush.b2 { right: 14%; width: clamp(48px, 7vw, 110px); bottom: 7%; }
 .deco-bush.b3 { left: 42%; width: clamp(40px, 5vw, 80px); bottom: 6%; }
 
-/* 主舞台容器 */
-.stage {
-  position: relative;
-  z-index: 1;
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: clamp(14px, 3vw, 34px) clamp(14px, 4vw, 44px) 18px;
-}
+/* 主舞台容器（主菜单） */
+.stage { position: relative; z-index: 1; min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column; max-width: 1180px; margin: 0 auto;
+  padding: clamp(14px, 3vw, 34px) clamp(14px, 4vw, 44px) 18px; }
 
 /* =====================================================================
    4. 顶部栏：品牌 Logo + 玩家资源概览
    ===================================================================== */
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-badge { width: clamp(44px, 6vw, 62px); height: auto; filter: drop-shadow(0 4px 4px rgba(76, 96, 60, 0.25)); }
+.brand-name { display: flex; flex-direction: column; line-height: 1.1; }
+.brand-name .cn { font-size: clamp(20px, 3.4vw, 30px); font-weight: 900; letter-spacing: 1px; }
+.brand-name .en { font-size: clamp(9px, 1.4vw, 12px); font-weight: 800; color: var(--ink-soft); letter-spacing: 2px; }
 
-/* 品牌：徽章 SVG + 游戏名 + 题材标语 */
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  animation: pop-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.brand-badge { width: clamp(52px, 7vw, 72px); height: auto; filter: drop-shadow(0 4px 4px rgba(76, 60, 30, 0.25)); }
-.brand-name { font-size: clamp(22px, 4vw, 34px); font-weight: 800; letter-spacing: 2px; line-height: 1; }
-.brand-name .cn { display: block; }
-.brand-name .en { font-size: clamp(10px, 1.6vw, 13px); font-weight: 600; color: var(--ink-soft); letter-spacing: 4px; }
-
-/* 资源条：金币 / 粮食（当前为界面演示数值，正式数值待数值体系落地） */
-.resources {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.resource-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 249, 232, 0.92);
-  border: 2px solid var(--border);
-  border-radius: 999px;
-  padding: 6px 12px 6px 8px;
-  font-weight: 800;
-  font-size: clamp(13px, 2vw, 16px);
-  box-shadow: var(--shadow-btn);
-}
-.resource-chip svg { width: 20px; height: 20px; }
+.resources { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.resource-chip { display: inline-flex; align-items: center; gap: 6px; background: rgba(255, 249, 232, 0.92);
+  border: 2px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 800;
+  box-shadow: 0 3px 0 rgba(122, 92, 52, 0.18); }
+.resource-chip svg { width: 16px; height: 16px; }
 
 /* =====================================================================
-   5. 主菜单：口号 + 中央菜单卡 + 五个系统入口
+   5. 主菜单
    ===================================================================== */
-.menu {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(14px, 3vh, 26px);
-  padding: 20px 0;
-}
+.menu { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; margin: 8vh 0 4vh; }
+.slogan { font-size: clamp(15px, 2.2vw, 20px); font-weight: 900; color: var(--ink);
+  background: rgba(255, 249, 232, 0.85); padding: 8px 22px; border-radius: 999px; border: 2px solid var(--border-soft); }
+.menu-card { width: min(560px, 94%); display: flex; flex-direction: column; gap: 14px; }
+.menu-btn { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 18px;
+  background: linear-gradient(180deg, #FFFDF4, var(--panel));
+  border: 3px solid var(--border); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card); transition: transform 0.12s ease, box-shadow 0.12s ease; }
+.menu-btn:hover { transform: translateY(-2px) rotate(-0.4deg); }
+.menu-btn:active { transform: translateY(2px); box-shadow: 0 4px 0 rgba(122, 92, 52, 0.2); }
+.menu-btn.hero { background: linear-gradient(180deg, #FFB266, var(--accent)); border-color: var(--accent-deep); }
+.menu-btn.hero .label { color: #FFFDF4; }
+.menu-btn.hero .label small { color: rgba(255, 253, 244, 0.85); }
+.menu-btn .ico { width: 44px; height: 44px; flex: none; }
+.menu-btn .label { display: flex; flex-direction: column; font-size: 18px; font-weight: 900; flex: 1; }
+.menu-btn .label small { font-size: 11px; font-weight: 700; color: var(--ink-soft); letter-spacing: 1px; }
+.menu-btn .arrow { font-size: 16px; color: var(--ink-faint); }
+.sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 560px) { .sub-grid { grid-template-columns: 1fr; } }
 
-/* 进入王国的引导语 */
-.slogan {
-  font-size: clamp(14px, 2.4vw, 20px);
-  font-weight: 700;
-  color: var(--ink);
-  background: rgba(255, 249, 232, 0.85);
-  border: 2px solid var(--border-soft);
-  border-radius: 999px;
-  padding: 8px 20px;
-  box-shadow: var(--shadow-btn);
-  animation: pop-in 0.6s 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  text-align: center;
-}
-
-/* 菜单主卡片：木纹暖白面板，承载所有入口按钮 */
-.menu-card {
-  width: min(560px, 92vw);
-  background: var(--panel);
-  border: 3px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: clamp(16px, 3vw, 26px);
-  box-shadow: var(--shadow-card);
-  display: grid;
-  gap: 12px;
-  animation: pop-in 0.55s 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-/* 菜单按钮通用样式：大圆角、厚阴影、按下下沉（卡通感） */
-.menu-btn {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  background: var(--panel-2);
-  border: 2px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  font-weight: 800;
-  font-size: clamp(15px, 2.4vw, 18px);
-  color: var(--ink);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  box-shadow: var(--shadow-btn);
-}
-.menu-btn:hover  { transform: translateY(-2px); }
-.menu-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(122, 92, 52, 0.22); }
-.menu-btn .ico { width: 42px; height: 42px; flex: 0 0 42px; }
-.menu-btn .label { flex: 1; text-align: left; display: flex; flex-direction: column; }
-.menu-btn .label small { font-weight: 600; color: var(--ink-faint); font-size: 0.72em; letter-spacing: 1px; }
-.menu-btn .arrow { font-size: 0.9em; color: var(--ink-faint); }
-
-/* 英雄按钮：「开始游戏」放最大、最醒目 */
-.menu-btn.hero {
-  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
-  border-color: #E05A12;
-  color: var(--white);
-  font-size: clamp(19px, 3vw, 24px);
-  padding: 18px 20px;
-  justify-content: center;
-  letter-spacing: 6px;
-}
-.menu-btn.hero .ico { width: 52px; height: 52px; flex-basis: 52px; }
-.menu-btn.hero .label small { color: rgba(255, 255, 255, 0.85); }
-
-/* 次级按钮：2x2 网格 */
-.sub-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
+.footer { display: flex; gap: 14px; flex-wrap: wrap; justify-content: space-between; font-size: 12px; color: var(--ink-soft); margin-top: 10px; }
+.footer .version { font-weight: 900; color: var(--ink); background: rgba(255, 249, 232, 0.8); padding: 2px 10px; border-radius: 999px; }
 
 /* =====================================================================
-   6. 底部信息条：版本 / 版权 / 状态提示
+   6. Overlay 面板（图鉴 / 章节 / 商店 / 设置 / 暂停 / 帮助）
    ===================================================================== */
-.footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  color: rgba(91, 70, 54, 0.85);
-  padding-top: 6px;
-}
-.footer .version {
-  background: rgba(255, 249, 232, 0.8);
-  border: 1.5px solid var(--border-soft);
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-weight: 700;
-}
-.footer .memo { opacity: 0.8; }
+.overlay { position: fixed; inset: 0; z-index: 40; background: rgba(76, 96, 60, 0.42);
+  display: flex; align-items: center; justify-content: center; padding: 16px; overflow: auto; }
+.overlay .panel { width: min(640px, 100%); max-height: 92vh; overflow: auto; background: var(--panel);
+  border: 4px solid var(--border); border-radius: var(--radius-lg); padding: 20px;
+  box-shadow: var(--shadow-card); }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.panel-head h2 { display: flex; align-items: center; gap: 8px; font-size: clamp(18px, 2.4vw, 24px); }
+.panel-head h2 svg { width: 24px; height: 24px; }
+.btn-close { width: 34px; height: 34px; border-radius: 50%; background: var(--panel-2); border: 2px solid var(--border);
+  color: var(--ink-soft); font-size: 14px; font-weight: 900; transition: background 0.12s; }
+.btn-close:hover { background: var(--border-soft); }
+.panel-note { font-size: 13px; color: var(--ink-soft); background: var(--panel-2); border: 1px dashed var(--border-soft);
+  border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 14px; line-height: 1.6; }
+.panel-tip { font-size: 12px; color: var(--ink-soft); }
 
-/* =====================================================================
-   7. Overlay 子面板：军队图鉴 / 关卡 / 商店 / 设置
-   通过 .hidden 与内存 currentView 切换，不依赖任何浏览器存储。
-   ===================================================================== */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  background: rgba(62, 74, 52, 0.42);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  animation: fade-in 0.22s ease both;
-}
-.panel {
-  background: var(--panel);
-  border: 3px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  width: min(780px, 96vw);
-  max-height: 86vh;
-  overflow-y: auto;             /* 小屏内容超高时可滚动，保证可达 */
-  padding: clamp(16px, 3vw, 26px);
-  animation: rise-in 0.24s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-.panel-head h2 {
-  font-size: clamp(18px, 3vw, 24px);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.panel-head h2 svg { width: 30px; height: 30px; }
-.btn-close {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--panel-2);
-  border: 2px solid var(--border);
-  font-weight: 800;
-  font-size: 18px;
-  color: var(--ink-soft);
-  transition: transform 0.12s ease;
-}
-.btn-close:hover { transform: rotate(90deg); }
+/* 卡片网格 */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.card { background: var(--panel-2); border: 3px solid var(--border-soft); border-radius: var(--radius-md); padding: 14px; }
+.card h3 { font-size: 17px; margin-bottom: 6px; }
+.card ul { list-style: none; font-size: 12.5px; line-height: 1.7; color: var(--ink-soft); margin: 8px 0; }
+.card li b { color: var(--ink); }
+.avatar { width: 84px; height: 84px; margin: 0 auto 8px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 800; background: var(--border-soft); color: var(--ink);
+  border-radius: 999px; padding: 3px 10px; }
+.tag.t-accent { background: #FFE3C9; color: var(--accent-deep); }
+.tag.t-gold { background: #FFF0BF; color: #A8740A; }
+.stat-corner { display: flex; gap: 8px; margin-top: 8px; }
+.stat-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 900;
+  border-radius: 999px; padding: 3px 10px; background: var(--panel); border: 2px solid var(--border-soft); }
+.stat-pill.atk { color: var(--atk); }
+.stat-pill.hp { color: var(--hp); }
+.q-btn.q-off { opacity: 0.5; }
 
-/* 面板内提示文本占位 */
-.panel-note {
-  font-size: 13px;
-  color: var(--ink-soft);
-  background: var(--panel-2);
-  border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  margin-bottom: 14px;
-  border: 1.5px dashed var(--border);
-}
+.progress-track { height: 10px; background: #EAD9A8; border-radius: 999px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--accent)); border-radius: 999px; transition: width 0.3s; }
 
-/* 卡牌网格（图鉴 / 关卡 / 商店通用） */
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 14px;
-}
-.card {
-  background: var(--panel-2);
-  border: 2px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 14px;
-  text-align: center;
-  box-shadow: var(--shadow-btn);
-  transition: transform 0.12s ease;
-}
-.card:hover { transform: translateY(-3px); }
-.card .avatar { width: 92px; height: 92px; margin: 0 auto 8px; }
-.card h3 { font-size: 16px; margin-bottom: 4px; }
-.card .tag {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 800;
-  color: var(--white);
-  background: var(--grass-dark);
-  border-radius: 999px;
-  padding: 3px 10px;
-  margin-bottom: 8px;
-}
-.card .tag.t-accent { background: var(--accent-deep); }
-.card ul { list-style: none; text-align: left; font-size: 12px; line-height: 1.7; color: var(--ink); }
-.card ul b { color: var(--accent-deep); }
+/* 按钮 */
+.btn-action { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 900; color: #FFFDF4;
+  background: linear-gradient(180deg, #FFB266, var(--accent)); border: 3px solid var(--accent-deep); border-radius: var(--radius-md);
+  padding: 10px 20px; box-shadow: var(--shadow-btn); transition: transform 0.1s; }
+.btn-action:hover:not(:disabled) { transform: translateY(-1px); }
+.btn-action:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 3px 0 rgba(122, 92, 52, 0.2); }
+.btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-action.ghost { background: var(--panel); color: var(--ink); border-color: var(--border); box-shadow: 0 4px 0 rgba(122, 92, 52, 0.16); }
+.btn-mini { font-size: 13px; font-weight: 800; color: var(--ink-soft); background: var(--panel); border: 2px solid var(--border);
+  border-radius: 999px; padding: 5px 12px; }
+.btn-mini:hover { background: var(--panel-2); }
+.menu-btn.small { width: auto; padding: 8px 16px; font-size: 13px; box-shadow: 0 4px 0 rgba(122,92,52,0.16); }
 
-/* 卡牌右下角属性角标：攻击 / 血量（呼应「右下角显示」的军队设计约定） */
-.stat-corner {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  margin-top: 8px;
-}
-.stat-pill {
-  font-size: 11px;
-  font-weight: 800;
-  border-radius: 999px;
-  padding: 2px 8px;
-  color: var(--white);
-}
-.stat-pill.atk { background: #E2604B; }
-.stat-pill.hp  { background: #4E9D5B; }
+/* 商店 */
+.shop-item { display: flex; align-items: center; gap: 12px; }
+.shop-item svg { width: 52px; height: 52px; flex: none; }
+.shop-item .label { flex: 1; font-size: 13.5px; }
+.shop-item .price { font-size: 15px; font-weight: 900; margin-top: 2px; }
+.badge-soon { font-size: 10px; font-weight: 800; color: var(--accent-deep); background: #FFE3C9; border-radius: 999px; padding: 1px 7px; margin-left: 4px; }
+.btn-buy { font-size: 13px; font-weight: 900; color: #FFFDF4; background: var(--accent); border-radius: 999px; padding: 8px 16px;
+  box-shadow: 0 4px 0 var(--accent-deep); }
+.btn-buy:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
-/* 章节进度条 */
-.progress-track { height: 14px; background: #EDE0C4; border-radius: 999px; overflow: hidden; }
-.progress-fill {
-  height: 100%;
-  width: 62%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--grass-light), var(--grass-dark));
-}
-
-/* 设置行 */
-.setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px 4px;
-  border-bottom: 1.5px dashed var(--border-soft);
-}
-.setting-row:last-child { border-bottom: none; }
-.setting-row .s-title { font-weight: 800; font-size: 15px; }
+/* 设置 */
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 4px; border-bottom: 1px dashed var(--border-soft); }
+.setting-row .s-title { font-weight: 900; font-size: 15px; }
 .setting-row .s-desc { font-size: 12px; color: var(--ink-soft); }
-
-/* 开关（checkbox 视觉化） */
-.switch { position: relative; width: 56px; height: 30px; flex: 0 0 56px; }
-.switch input { opacity: 0; width: 0; height: 0; position: absolute; }
-.switch .knob {
-  position: absolute;
-  inset: 0;
-  background: #D8C7A8;
-  border-radius: 999px;
-  transition: background 0.18s;
-}
-.switch .knob::after {
-  content: "";
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  left: 3px;
-  top: 3px;
-  border-radius: 50%;
-  background: var(--white);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: transform 0.18s;
-}
-.switch input:checked + .knob { background: var(--grass-dark); }
-.switch input:checked + .knob::after { transform: translateX(26px); }
-
-/* 商店商品卡 */
-.shop-item { display: flex; align-items: center; gap: 10px; }
-.shop-item svg { width: 40px; height: 40px; flex: 0 0 40px; }
-.shop-item .price { font-weight: 800; color: var(--accent-deep); font-size: 14px; }
-.badge-soon {
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--accent-deep);
-  background: #FFE8D2;
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-/* 开始游戏面板：战前简报 */
-.brief-box {
-  background: var(--panel-2);
-  border: 2px dashed var(--border);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  margin-bottom: 14px;
-}
-.brief-box h3 { margin-bottom: 8px; font-size: 16px; }
-.brief-box p { font-size: 13px; line-height: 1.8; color: var(--ink); }
+.switch { position: relative; display: inline-block; width: 52px; height: 30px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .knob { position: absolute; inset: 0; background: #E2D2B4; border-radius: 999px; transition: background 0.15s; cursor: pointer; }
+.switch .knob::before { content: ""; position: absolute; width: 22px; height: 22px; left: 4px; top: 4px; background: #FFFDF4;
+  border-radius: 50%; transition: transform 0.15s; box-shadow: 0 2px 4px rgba(0,0,0,0.25); }
+.switch input:checked + .knob { background: var(--accent); }
+.switch input:checked + .knob::before { transform: translateX(22px); }
 
 /* =====================================================================
-   8. Toast 轻提示（不依赖 alert）
+   7. 战斗视图：头部 / 阶段指示器 / 战场 / 敌方 / 手牌 / 行动 / 日志
    ===================================================================== */
-#toast {
-  position: fixed;
-  left: 50%;
-  bottom: 34px;
-  transform: translateX(-50%) translateY(20px);
-  background: rgba(91, 70, 54, 0.94);
-  color: var(--white);
-  font-weight: 700;
-  font-size: 14px;
-  border-radius: 999px;
-  padding: 10px 22px;
-  z-index: 30;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s, transform 0.25s;
-}
+.battle { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; background: #F7E9CB; overflow: hidden; }
+
+.battle-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 10px clamp(10px, 2vw, 22px); background: rgba(255, 249, 232, 0.94); border-bottom: 3px solid var(--border); z-index: 2; }
+.b-info { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.b-chap { font-weight: 900; font-size: clamp(13px, 1.8vw, 16px); }
+.b-turn { font-size: 12px; font-weight: 800; color: var(--ink-soft); background: var(--panel-2); border: 1px solid var(--border-soft);
+  border-radius: 999px; padding: 3px 10px; }
+.b-castle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 900; }
+.hpbar { display: inline-block; width: clamp(60px, 10vw, 110px); height: 12px; background: #EAD9A8; border-radius: 999px; overflow: hidden; }
+.hpbar i { display: block; height: 100%; background: linear-gradient(90deg, #FF6B5B, #FF8A3D); border-radius: 999px; transition: width 0.3s; }
+
+/* 阶段指示器：①回合开始 ②操作 ③商店 ④战斗 ⑤结算 */
+.phase-track { display: flex; align-items: center; gap: 4px; justify-content: center; padding: 8px 10px; background: rgba(255, 249, 232, 0.7); flex-wrap: wrap; }
+.phase-step { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 900; color: var(--ink-faint);
+  background: var(--panel-2); border: 2px solid var(--border-soft); border-radius: 999px; padding: 3px 9px; transition: all 0.15s; }
+.phase-step.done { color: #7A8A3C; border-color: #B8C86B; }
+.phase-step.active { color: #FFFDF4; background: var(--accent); border-color: var(--accent-deep); transform: scale(1.06); box-shadow: 0 3px 0 rgba(122, 92, 52, 0.25); }
+.phase-arrow { color: var(--ink-faint); font-size: 11px; }
+
+.battle-main { flex: 1; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: clamp(8px, 1.6vw, 18px);
+  padding: clamp(8px, 1.6vw, 16px); overflow: auto; min-height: 0; }
+
+.battle-field { display: flex; flex-direction: column; gap: 8px; }
+.rank { display: flex; align-items: stretch; gap: 8px; }
+.rank-label { writing-mode: horizontal-tb; align-self: center; font-size: 12px; font-weight: 900; color: var(--ink-soft);
+  background: var(--panel); border: 2px solid var(--border-soft); border-radius: 999px; padding: 4px 10px; white-space: nowrap; flex: none; }
+.rank-slots { flex: 1; display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; min-height: 76px; }
+
+.slot { flex: 0 0 clamp(86px, 10vw, 118px); background: var(--panel-2); border: 3px solid var(--border-soft); border-radius: var(--radius-md);
+  padding: 6px 6px 4px; text-align: center; cursor: pointer; position: relative; transition: transform 0.1s, border-color 0.1s; }
+.slot:hover { border-color: var(--border); }
+.slot.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 138, 61, 0.35); }
+.slot.lit { border-color: #C9B089; }
+.s-avatar { width: 44px; height: 44px; margin: 0 auto; }
+.s-name { font-size: 10.5px; font-weight: 900; line-height: 1.2; min-height: 24px; }
+.s-stars { font-size: 9px; color: var(--accent-deep); letter-spacing: 1px; }
+.s-stat { display: flex; justify-content: center; gap: 6px; font-size: 9.5px; font-weight: 900; }
+.s-stat .va { color: var(--atk); }
+.s-stat .vh { color: var(--hp); }
+.s-buff { position: absolute; top: -8px; right: -6px; background: var(--accent); color: #FFF; font-size: 10px; font-weight: 900;
+  border-radius: 999px; padding: 2px 6px; box-shadow: 0 2px 0 rgba(122,92,52,0.3); }
+.s-dead { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(255, 249, 232, 0.75);
+  border-radius: var(--radius-md); font-size: 26px; }
+
+/* 敌方区 */
+.battle-enemy { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.enemy-list { flex: 1; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+.enemy-card { flex: 0 0 clamp(112px, 12vw, 150px); display: flex; align-items: center; gap: 8px; background: rgba(255, 249, 232, 0.92);
+  border: 3px solid var(--border); border-radius: var(--radius-md); padding: 8px; }
+.enemy-card.e-delayed { opacity: 0.65; }
+.e-avatar { width: 42px; height: 42px; flex: none; }
+.e-info { min-width: 0; }
+.e-name { font-size: 11.5px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.e-desc { font-size: 9.5px; color: var(--ink-faint); }
+.e-hpbar { height: 8px; background: #EAD9A8; border-radius: 999px; overflow: hidden; margin: 3px 0; }
+.e-hpbar i { display: block; height: 100%; background: linear-gradient(90deg, #E2604B, #FF8A3D); border-radius: 999px; }
+.e-lv { font-size: 9.5px; font-weight: 800; color: var(--ink-soft); }
+
+/* 底部：手牌 + 行动 + 商店/事件 + 日志 */
+.battle-foot { border-top: 3px solid var(--border); background: rgba(255, 249, 232, 0.9); padding: 8px clamp(10px, 2vw, 22px); display: flex;
+  flex-direction: column; gap: 8px; max-height: 42%; z-index: 2; overflow: auto; }
+.hand { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; min-height: 56px; }
+.hand-card { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; background: var(--panel-2); border: 3px solid var(--border-soft);
+  border-radius: var(--radius-md); padding: 5px 10px; cursor: pointer; font-size: 12px; font-weight: 900; }
+.hand-card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 138, 61, 0.35); }
+.h-avatar { width: 32px; height: 32px; }
+.h-count { background: var(--accent); color: #FFF; border-radius: 999px; font-size: 10px; padding: 1px 7px; }
+
+.b-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.b-hint { font-size: 11.5px; color: var(--ink-faint); font-weight: 700; }
+
+.log-box { font-size: 12px; color: var(--ink-soft); line-height: 1.6; background: rgba(255, 249, 232, 0.6);
+  border: 1px dashed var(--border-soft); border-radius: var(--radius-sm); padding: 6px 10px; min-height: 44px; max-height: 120px; overflow: auto; }
+
+/* 商店窗口（阶段 ③） */
+.shop-window { background: var(--panel-2); border: 3px solid var(--border); border-radius: var(--radius-md); padding: 10px 12px; }
+.shop-window h3 { font-size: 15px; margin-bottom: 8px; }
+.shop-offers { display: flex; gap: 10px; flex-wrap: wrap; }
+.offer-card { flex: 1 1 120px; max-width: 200px; background: var(--panel); border: 3px solid var(--border-soft); border-radius: var(--radius-md);
+  padding: 10px; text-align: center; cursor: pointer; transition: transform 0.1s; }
+.offer-card:hover { transform: translateY(-2px); border-color: var(--border); }
+.o-avatar { width: 52px; height: 52px; margin: 0 auto; }
+.o-name { font-size: 13px; font-weight: 900; margin-top: 4px; }
+.o-cost { font-size: 13px; font-weight: 900; color: var(--accent-deep); margin-top: 2px; }
+.o-desc { font-size: 10.5px; color: var(--ink-soft); line-height: 1.4; margin-top: 3px; }
+
+/* 事件区 */
+.event-banner { background: linear-gradient(180deg, #FFF3D0, #FFE9C4); border: 3px solid var(--border); border-radius: var(--radius-md);
+  padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.event-choices { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* 结算面板 */
+.result-panel { position: fixed; inset: 0; z-index: 50; background: rgba(76, 96, 60, 0.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.result-card { width: min(460px, 100%); background: var(--panel); border: 4px solid var(--border); border-radius: var(--radius-lg);
+  padding: 26px; text-align: center; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.result-card h2 { font-size: 26px; }
+.r-desc { font-size: 14px; color: var(--ink-soft); line-height: 1.7; }
+.r-stats { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+/* 卡包选择（五选二 / 三选一） */
+.pick-card { background: var(--panel); border: 3px solid var(--border-soft); border-radius: var(--radius-md); padding: 12px; text-align: center; cursor: pointer; transition: all 0.12s; }
+.pick-card:hover { transform: translateY(-2px); }
+.pick-card.picked { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 138, 61, 0.4); background: #FFF0E2; }
+.p-avatar { width: 64px; height: 64px; margin: 0 auto; }
+.p-name { font-size: 14px; font-weight: 900; margin-top: 4px; }
+.p-desc { font-size: 11px; color: var(--ink-soft); margin-top: 3px; line-height: 1.4; }
+
+/* =====================================================================
+   8. Toast / 加载画面
+   ===================================================================== */
+#toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px); z-index: 90;
+  background: var(--ink); color: #FFFDF4; font-size: 14px; font-weight: 800; padding: 10px 22px; border-radius: 999px;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; max-width: 86vw; text-align: center; }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* =====================================================================
-   9. 入场加载画面
-   呼应「加载所有插件、技能等」：进入王国前先集结动物军团。
-   展示结束后由 JS 移除，刷新即回到初始值属预期（沙箱内存态）。
-   ===================================================================== */
-#loader {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 78%);
-}
-#loader .mark { width: clamp(90px, 14vw, 130px); animation: bob 1.8s ease-in-out infinite; }
-#loader .load-label { font-weight: 800; font-size: clamp(15px, 2.4vw, 18px); letter-spacing: 2px; }
-#loader .bar-track {
-  width: min(300px, 70vw);
-  height: 12px;
-  background: #EADFC2;
-  border-radius: 999px;
-  overflow: hidden;
-  box-shadow: inset 0 2px 4px rgba(122, 92, 52, 0.18);
-}
-#loader .bar-fill {
-  height: 100%;
-  width: 0%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent-2), var(--accent));
-  transition: width 0.3s ease;
-}
-#loader .load-tip { font-size: 12px; color: var(--ink-soft); }
+#loader { position: fixed; inset: 0; z-index: 99; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom)); }
+#loader .mark { width: clamp(90px, 16vw, 130px); height: auto; animation: hop 1.6s ease-in-out infinite; }
+@keyframes hop { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.load-label { font-size: clamp(16px, 2.4vw, 22px); font-weight: 900; }
+.bar-track { width: min(280px, 70vw); height: 14px; background: rgba(255, 255, 255, 0.7); border: 2px solid var(--border); border-radius: 999px; overflow: hidden; }
+.bar-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent-2), var(--accent)); border-radius: 999px; transition: width 0.28s; }
+.load-tip { font-size: 12px; color: var(--ink-soft); font-weight: 700; min-height: 18px; }
 
 /* =====================================================================
-   10. 动画关键帧
+   9. 无障碍：reduced-motion 时收敛动效
    ===================================================================== */
-@keyframes drift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(24px); } }
-@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-@keyframes pop-in {
-  from { opacity: 0; transform: scale(0.92) translateY(14px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
-}
-@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes rise-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
-
-/* 用户偏好减少动效：所有动画落到稳定态 */
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
-  #loader .mark { animation: none; }
   .cloud { animation: none; }
-}
-
-/* =====================================================================
-   11. 响应式适配
-   - 320px ~ 767px：竖排单列菜单、紧凑顶部、小屏字号
-   - 768px 以上：恢复网格
-   ===================================================================== */
-@media (max-width: 767px) {
-  .sub-grid { grid-template-columns: 1fr; }          /* 次级按钮改单列 */
-  .topbar { justify-content: center; }                /* 顶部居中 */
-  .brand { flex-direction: column; text-align: center; gap: 6px; }
-  .menu-btn { padding: 11px 14px; }
-  .menu-btn .ico { width: 36px; height: 36px; flex-basis: 36px; }
-  .menu-btn.hero { letter-spacing: 3px; }
-  .footer { justify-content: center; text-align: center; }
-  .footer .memo { width: 100%; }
-  .cards { grid-template-columns: 1fr 1fr; }          /* 小屏图鉴仍可两列 */
-  .cards .card .avatar { width: 72px; height: 72px; }
-}
-
-@media (max-width: 390px) {
-  .cards { grid-template-columns: 1fr; }              /* 超窄屏图鉴单列，避免挤压 */
-  .resource-chip { padding: 5px 9px 5px 6px; font-size: 12px; }
+  #loader .mark { animation: none; }
 }
 </style>
 </head>
 <body>
 
 <!-- ================================================================
-     入场加载画面：开始前先「集结动物军团」
+     入场加载画面（呼应"加载所有插件、技能等可用能力"）
      ================================================================ -->
 <div id="loader" role="status" aria-live="polite">
-  <!-- 王冠盾牌徽章（加载标志） -->
   <svg class="mark" viewBox="0 0 120 120" role="img" aria-label="动物王国徽章">
-    <!-- 阳光放射线 -->
     <g stroke="#FFC94D" stroke-width="5" stroke-linecap="round">
-      <line x1="60" y1="6"  x2="60" y2="18"/>
-      <line x1="60" y1="102" x2="60" y2="114"/>
-      <line x1="6"  y1="60" x2="18" y2="60"/>
-      <line x1="102" y1="60" x2="114" y2="60"/>
-      <line x1="22" y1="22" x2="30" y2="30"/>
-      <line x1="90" y1="90" x2="98" y2="98"/>
-      <line x1="98" y1="22" x2="90" y2="30"/>
-      <line x1="30" y1="90" x2="22" y2="98"/>
+      <line x1="60" y1="6"  x2="60" y2="18"/><line x1="60" y1="102" x2="60" y2="114"/>
+      <line x1="6"  y1="60" x2="18" y2="60"/><line x1="102" y1="60" x2="114" y2="60"/>
+      <line x1="22" y1="22" x2="30" y2="30"/><line x1="90" y1="90" x2="98" y2="98"/>
+      <line x1="98" y1="22" x2="90" y2="30"/><line x1="30" y1="90" x2="22" y2="98"/>
     </g>
-    <!-- 盾牌 -->
     <path d="M60 22 L88 32 V58 C88 78 76 90 60 98 C44 90 32 78 32 58 V32 Z" fill="#FFF9E8" stroke="#E8B56C" stroke-width="4"/>
-    <!-- 盾牌上的王冠 -->
     <path d="M44 38 L48 30 L56 38 L60 28 L64 38 L72 30 L76 38 L60 50 Z" fill="#FFC94D" stroke="#F0A020" stroke-width="2"/>
-    <!-- 盾牌上的爱心 -->
     <path d="M60 58 C54 52 46 58 60 70 C74 58 66 52 60 58 Z" fill="#FF8A3D"/>
-    <!-- 盾牌上的星星 -->
     <path d="M60 78 L63 72 L69 72 L65 67 L66 61 L60 64 L54 61 L55 67 L51 72 L57 72 Z" fill="#FFC94D"/>
-    <!-- 下方爪印（动物） -->
-    <ellipse cx="47" cy="100" rx="7" ry="5" fill="#8A6F55"/>
-    <ellipse cx="60" cy="102" rx="7" ry="5" fill="#8A6F55"/>
-    <ellipse cx="73" cy="100" rx="7" ry="5" fill="#8A6F55"/>
+    <ellipse cx="47" cy="100" rx="7" ry="5" fill="#8A6F55"/><ellipse cx="60" cy="102" rx="7" ry="5" fill="#8A6F55"/><ellipse cx="73" cy="100" rx="7" ry="5" fill="#8A6F55"/>
   </svg>
   <div class="load-label">正在集结动物军团…</div>
   <div class="bar-track"><div class="bar-fill" id="loadBar"></div></div>
-  <div class="load-tip" id="loadTip">正在加载插件与技能</div>
+  <div class="load-tip" id="loadTip">正在加载各插件、技能与可用能力</div>
 </div>
 
 <!-- ================================================================
-     主舞台
+     主舞台（主菜单）
      ================================================================ -->
 <div id="app" class="stage hidden">
-
-  <!-- 背景装饰层 -->
   <div class="sky" aria-hidden="true">
     <div class="sun"></div>
     <div class="cloud cloud-1"></div>
@@ -654,7 +409,6 @@ button {
     <div class="cloud cloud-3"></div>
   </div>
   <div class="ground" aria-hidden="true">
-    <!-- 小树装饰 -->
     <svg class="deco-tree t1" viewBox="0 0 100 120" aria-hidden="true">
       <ellipse cx="50" cy="34" rx="34" ry="28" fill="#6FBF6B"/>
       <ellipse cx="36" cy="26" rx="22" ry="18" fill="#8ED081"/>
@@ -665,7 +419,6 @@ button {
       <ellipse cx="38" cy="28" rx="18" ry="14" fill="#8ED081"/>
       <rect x="46" y="56" width="8" height="22" rx="3" fill="#B98A5F"/>
     </svg>
-    <!-- 草丛 -->
     <svg class="deco-bush b1" viewBox="0 0 120 70" aria-hidden="true">
       <path d="M8 68 Q4 30 30 26 Q26 8 52 14 Q50 -4 74 10 Q80 2 96 22 Q118 16 112 44 Q120 60 108 68 Z" fill="#7BC96F"/>
     </svg>
@@ -677,16 +430,12 @@ button {
     </svg>
   </div>
 
-  <!-- 顶部栏：品牌 + 资源概览 -->
   <header class="topbar">
     <div class="brand">
-      <!-- 徽章 SVG：盾牌 + 王冠 + 爪印 -->
       <svg class="brand-badge" viewBox="0 0 120 120" role="img" aria-label="动物王国徽章">
         <g stroke="#FFC94D" stroke-width="5" stroke-linecap="round">
-          <line x1="60" y1="8"  x2="60" y2="20"/>
-          <line x1="60" y1="100" x2="60" y2="112"/>
-          <line x1="8"  y1="60" x2="20" y2="60"/>
-          <line x1="100" y1="60" x2="112" y2="60"/>
+          <line x1="60" y1="8"  x2="60" y2="20"/><line x1="60" y1="100" x2="60" y2="112"/>
+          <line x1="8"  y1="60" x2="20" y2="60"/><line x1="100" y1="60" x2="112" y2="60"/>
         </g>
         <path d="M60 24 L86 33 V57 C86 76 74 88 60 96 C46 88 34 76 34 57 V33 Z" fill="#FFF9E8" stroke="#E8B56C" stroke-width="4"/>
         <path d="M45 40 L49 32 L56 40 L60 30 L64 40 L71 32 L75 40 L60 51 Z" fill="#FFC94D" stroke="#F0A020" stroke-width="2"/>
@@ -698,116 +447,66 @@ button {
         <span class="en">ANIMAL KINGDOM</span>
       </div>
     </div>
-
-    <!-- 玩家资源概览：当前为界面演示数值，正式数值待「数值体系」落地后接入 -->
-    <div class="resources" aria-label="资源概览（演示数值）">
-      <div class="resource-chip" title="金币：用于招募军队、购买卡包与土地（演示数值）">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" fill="#FFC94D" stroke="#E8A020" stroke-width="2"/>
-          <path d="M12 6.5 L13.2 9.6 L16.4 9.8 L13.9 11.9 L14.7 15 L12 13.2 L9.3 15 L10.1 11.9 L7.6 9.8 L10.8 9.6 Z" fill="#F0A020"/>
-        </svg>
-        <span>金币 128</span>
-      </div>
-      <div class="resource-chip" title="粮食：军队每回合维持费（演示数值）">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 3 C7 7 4 11 4 14 a8 8 0 0 0 16 0 C20 11 17 7 12 3 Z" fill="#8ED081" stroke="#4FA857" stroke-width="2"/>
-          <path d="M12 3 C12 8 12 11 12 14" stroke="#4FA857" stroke-width="2"/>
-        </svg>
-        <span>粮食 96</span>
-      </div>
-    </div>
+    <!-- 玩家资源：由 JS 根据内存 store 实时刷新 -->
+    <div class="resources" id="topResources" aria-label="资源概览"></div>
   </header>
 
-  <!-- 主菜单区 -->
   <main class="menu">
     <div class="slogan">🐾 守卫家园 · 可爱军团出击</div>
-
-    <!-- 中央菜单卡 -->
     <nav class="menu-card" aria-label="游戏主菜单">
-      <!-- 主行动：开始游戏 -->
       <button class="menu-btn hero" data-view="play" aria-label="开始游戏">
-        <!-- 狮子头像：代表勇敢启程 -->
         <svg class="ico" viewBox="0 0 100 100" aria-hidden="true">
           <path d="M14 50 a36 36 0 1 1 72 0 a4 4 0 0 1 -4 4 L18 54 a4 4 0 0 1 -4 -4 Z" fill="#FFB03A"/>
-          <circle cx="26" cy="40" r="9" fill="#F08A20"/>
-          <circle cx="74" cy="40" r="9" fill="#F08A20"/>
+          <circle cx="26" cy="40" r="9" fill="#F08A20"/><circle cx="74" cy="40" r="9" fill="#F08A20"/>
           <circle cx="50" cy="52" r="26" fill="#FFC97A"/>
-          <circle cx="42" cy="50" r="4" fill="#5B4636"/>
-          <circle cx="58" cy="50" r="4" fill="#5B4636"/>
+          <circle cx="42" cy="50" r="4" fill="#5B4636"/><circle cx="58" cy="50" r="4" fill="#5B4636"/>
           <path d="M46 62 Q50 66 54 62" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
           <path d="M34 58 a4 4 0 0 0 8 0" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
           <path d="M58 58 a4 4 0 0 0 8 0" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
         </svg>
-        <span class="label">开始游戏<small>START GAME</small></span>
+        <span class="label">开始游戏<small>START GAME · 肉鸽闯关</small></span>
         <span class="arrow" aria-hidden="true">▶</span>
       </button>
-
-      <!-- 四个系统入口：2x2 网格 -->
       <div class="sub-grid">
-        <!-- 军队图鉴：猫头鹰（博学） -->
         <button class="menu-btn" data-view="index" aria-label="打开军队图鉴">
           <svg class="ico" viewBox="0 0 100 100" aria-hidden="true">
-            <ellipse cx="50" cy="60" rx="30" ry="26" fill="#C9A06C"/>
-            <circle cx="24" cy="44" r="14" fill="#C9A06C"/>
-            <circle cx="76" cy="44" r="14" fill="#C9A06C"/>
-            <circle cx="50" cy="52" r="26" fill="#EAD9A8"/>
-            <circle cx="40" cy="48" r="11" fill="#FFFFFF"/>
-            <circle cx="60" cy="48" r="11" fill="#FFFFFF"/>
-            <circle cx="42" cy="49" r="5" fill="#5B4636"/>
-            <circle cx="58" cy="49" r="5" fill="#5B4636"/>
+            <ellipse cx="50" cy="60" rx="30" ry="26" fill="#C9A06C"/><circle cx="24" cy="44" r="14" fill="#C9A06C"/><circle cx="76" cy="44" r="14" fill="#C9A06C"/>
+            <circle cx="50" cy="52" r="26" fill="#EAD9A8"/><circle cx="40" cy="48" r="11" fill="#FFFFFF"/><circle cx="60" cy="48" r="11" fill="#FFFFFF"/>
+            <circle cx="42" cy="49" r="5" fill="#5B4636"/><circle cx="58" cy="49" r="5" fill="#5B4636"/>
             <path d="M40 58 L46 60 L50 57 L54 60 L60 58" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
             <rect x="35" y="70" width="30" height="5" rx="2.5" fill="#8A6F55"/>
           </svg>
           <span class="label">军队图鉴<small>ARMY INDEX</small></span>
           <span class="arrow" aria-hidden="true">▶</span>
         </button>
-
-        <!-- 关卡章节：鹿（探索旅程） -->
         <button class="menu-btn" data-view="levels" aria-label="打开关卡章节">
           <svg class="ico" viewBox="0 0 100 100" aria-hidden="true">
-            <ellipse cx="50" cy="62" rx="30" ry="26" fill="#D9A05C"/>
-            <circle cx="18" cy="36" r="7" fill="#D9A05C"/>
-            <circle cx="82" cy="36" r="7" fill="#D9A05C"/>
-            <path d="M46 40 L42 20 L52 34" fill="#D9A05C"/>
-            <path d="M54 40 L58 20 L48 34" fill="#D9A05C"/>
-            <path d="M20 44 L10 30 L26 36" fill="#D9A05C"/>
-            <path d="M80 44 L90 30 L74 36" fill="#D9A05C"/>
+            <ellipse cx="50" cy="62" rx="30" ry="26" fill="#D9A05C"/><circle cx="18" cy="36" r="7" fill="#D9A05C"/><circle cx="82" cy="36" r="7" fill="#D9A05C"/>
+            <path d="M46 40 L42 20 L52 34" fill="#D9A05C"/><path d="M54 40 L58 20 L48 34" fill="#D9A05C"/>
+            <path d="M20 44 L10 30 L26 36" fill="#D9A05C"/><path d="M80 44 L90 30 L74 36" fill="#D9A05C"/>
             <ellipse cx="50" cy="56" rx="24" ry="21" fill="#EBC390"/>
-            <circle cx="42" cy="53" r="4" fill="#5B4636"/>
-            <circle cx="58" cy="53" r="4" fill="#5B4636"/>
+            <circle cx="42" cy="53" r="4" fill="#5B4636"/><circle cx="58" cy="53" r="4" fill="#5B4636"/>
             <path d="M45 65 Q50 70 55 65" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
-            <ellipse cx="50" cy="74" rx="8" ry="5" fill="#FFF3D0"/>
-            <circle cx="24" cy="38" r="3" fill="#FFF3D0"/>
-            <circle cx="76" cy="38" r="3" fill="#FFF3D0"/>
+            <ellipse cx="50" cy="74" rx="8" ry="5" fill="#FFF3D0"/><circle cx="24" cy="38" r="3" fill="#FFF3D0"/><circle cx="76" cy="38" r="3" fill="#FFF3D0"/>
           </svg>
           <span class="label">关卡章节<small>LEVELS</small></span>
           <span class="arrow" aria-hidden="true">▶</span>
         </button>
-
-        <!-- 商店：松鼠（囤货） -->
         <button class="menu-btn" data-view="shop" aria-label="打开王国商店">
           <svg class="ico" viewBox="0 0 100 100" aria-hidden="true">
             <path d="M14 62 Q14 30 38 30 Q50 14 64 30 Q88 30 88 62 L84 86 Q80 92 74 92 L28 92 Q22 92 18 86 Z" fill="#D99A4E"/>
             <path d="M82 46 a24 24 0 0 0 -40 -16 a32 32 0 0 1 12 10 a18 18 0 0 0 -12 6 Z" fill="#C9823B"/>
-            <circle cx="42" cy="56" r="5" fill="#5B4636"/>
-            <circle cx="60" cy="56" r="5" fill="#5B4636"/>
+            <circle cx="42" cy="56" r="5" fill="#5B4636"/><circle cx="60" cy="56" r="5" fill="#5B4636"/>
             <path d="M42 66 Q50 74 58 66" stroke="#5B4636" stroke-width="4" fill="none" stroke-linecap="round"/>
-            <circle cx="30" cy="68" r="10" fill="#F0B25C"/>
-            <circle cx="72" cy="68" r="10" fill="#F0B25C"/>
+            <circle cx="30" cy="68" r="10" fill="#F0B25C"/><circle cx="72" cy="68" r="10" fill="#F0B25C"/>
           </svg>
           <span class="label">商店<small>SHOP</small></span>
           <span class="arrow" aria-hidden="true">▶</span>
         </button>
-
-        <!-- 设置：小熊（管控全局） -->
         <button class="menu-btn" data-view="settings" aria-label="打开设置">
           <svg class="ico" viewBox="0 0 100 100" aria-hidden="true">
-            <circle cx="50" cy="54" r="28" fill="#B98A5F"/>
-            <circle cx="26" cy="36" r="12" fill="#B98A5F"/>
-            <circle cx="74" cy="36" r="12" fill="#B98A5F"/>
-            <circle cx="50" cy="58" r="20" fill="#D9B488"/>
-            <circle cx="43" cy="55" r="3.5" fill="#5B4636"/>
-            <circle cx="57" cy="55" r="3.5" fill="#5B4636"/>
+            <circle cx="50" cy="54" r="28" fill="#B98A5F"/><circle cx="26" cy="36" r="12" fill="#B98A5F"/><circle cx="74" cy="36" r="12" fill="#B98A5F"/>
+            <circle cx="50" cy="58" r="20" fill="#D9B488"/><circle cx="43" cy="55" r="3.5" fill="#5B4636"/><circle cx="57" cy="55" r="3.5" fill="#5B4636"/>
             <path d="M45 66 Q50 71 55 66" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
           </svg>
           <span class="label">设置<small>SETTINGS</small></span>
@@ -817,107 +516,20 @@ button {
     </nav>
   </main>
 
-  <!-- 底部信息条 -->
   <footer class="footer">
-    <span class="version">v0.1.0 · 首页</span>
-    <span class="memo">页面为「动物王国」开发中的主菜单演示 · 数值与商店为占位，正式内容随游戏系统逐步接入</span>
+    <span class="version">v1.0.0 · 完整游戏</span>
+    <span class="memo">肉鸽构筑 · 三合一升星 · 同名叠放</span>
     <span>© 2026 Animal Kingdom</span>
   </footer>
 </div>
 
 <!-- ================================================================
-     开始游戏面板（战前简报）
-     ================================================================ -->
-<section class="overlay hidden" id="panel-play" role="dialog" aria-modal="true" aria-label="开始游戏">
-  <div class="panel">
-    <div class="panel-head">
-      <h2>⚔️ 开始游戏 · 战前简报</h2>
-      <button class="btn-close" data-close aria-label="关闭">✕</button>
-    </div>
-    <!-- 说明：这些是已确认的玩法规则，不包含虚构内容 -->
-    <div class="brief-box">
-      <h3>第 1 章 · 草原兽潮（即将开放）</h3>
-      <p>
-        每关回合流程：① 回合开始（驻军被动触发）→ ② 合成 / 操作（三合一升星 · 同名叠放）→ ③ 商店窗口 → ④ 敌人推进攻击（先攻击前排，再中排，后勤最后）→ ⑤ 回合结算。<br>
-        目标：在敌人攻入王都前，用合成与叠放打造最强动物军团。
-      </p>
-      <p style="margin-top:8px;color:var(--ink-faint);font-size:12px;">※ 本章战斗数值与关卡详情正在制作中，敬请期待。</p>
-    </div>
-    <div class="cards">
-      <!-- 已设计的两支初始军队 -->
-      <div class="card">
-        <svg class="avatar" viewBox="0 0 120 120" role="img" aria-label="铁牛盾卫">
-          <!-- 铁牛盾卫：牛角 + 圆盾 + 坚毅表情 -->
-          <ellipse cx="60" cy="68" rx="34" ry="30" fill="#B98A5F"/>
-          <circle cx="34" cy="42" r="12" fill="#B98A5F"/>
-          <circle cx="86" cy="42" r="12" fill="#B98A5F"/>
-          <path d="M46 40 Q38 14 58 30" stroke="#F0E2C8" stroke-width="8" fill="none" stroke-linecap="round"/>
-          <path d="M74 40 Q82 14 62 30" stroke="#F0E2C8" stroke-width="8" fill="none" stroke-linecap="round"/>
-          <ellipse cx="60" cy="66" rx="24" ry="21" fill="#D9A05C"/>
-          <path d="M52 62 a3 3 0 0 1 6 0" fill="none" stroke="#5B4636" stroke-width="2.5" stroke-linecap="round"/>
-          <path d="M64 58 q4 2 3 7" fill="none" stroke="#5B4636" stroke-width="2.5" stroke-linecap="round"/>
-          <ellipse cx="48" cy="78" rx="10" ry="7" fill="#F0E2C8"/>
-          <circle cx="48" cy="78" r="2.5" fill="#5B4636"/>
-          <ellipse cx="46" cy="86" rx="5" ry="3" fill="#5B4636"/>
-          <ellipse cx="76" cy="86" rx="5" ry="3" fill="#5B4636"/>
-          <circle cx="96" cy="52" r="18" fill="#E8B56C" stroke="#C9823B" stroke-width="3"/>
-          <path d="M89 58 L93 55 L97 59 L100 54 L96 50 L100 47 L93 45 L90 50 L89 46 Z" fill="#C9823B" transform="translate(2,6) scale(0.8)"/>
-        </svg>
-        <h3>铁牛盾卫</h3>
-        <span class="tag">前线 · 盾卫</span>
-        <ul>
-          <li><b>被动</b>：铜皮，减伤 -1</li>
-          <li><b>触发</b>：牛角冲撞，前排单体 3 伤 + 延后 1 回合</li>
-          <li><b>天赋</b>：犟脾气，累计受 5 伤 +1 攻（最多 3 次）</li>
-        </ul>
-        <div class="stat-corner" aria-label="1星属性 攻击2 血量14">
-          <span class="stat-pill atk">⚔ 2</span>
-          <span class="stat-pill hp">❤ 14</span>
-        </div>
-      </div>
-      <div class="card">
-        <svg class="avatar" viewBox="0 0 120 120" role="img" aria-label="白羊医官">
-          <!-- 白羊医官：蓬松卷毛 + 红十字 -->
-          <circle cx="44" cy="44" r="12" fill="#FFF6E5"/>
-          <circle cx="76" cy="44" r="12" fill="#FFF6E5"/>
-          <circle cx="36" cy="66" r="13" fill="#FFF6E5"/>
-          <circle cx="84" cy="66" r="13" fill="#FFF6E5"/>
-          <ellipse cx="60" cy="68" rx="32" ry="30" fill="#FFF6E5"/>
-          <ellipse cx="60" cy="64" rx="20" ry="18" fill="#FFE9F0"/>
-          <path d="M48 54 Q46 38 58 42" stroke="#E8B56C" stroke-width="7" fill="none" stroke-linecap="round"/>
-          <path d="M72 54 Q74 38 62 42" stroke="#E8B56C" stroke-width="7" fill="none" stroke-linecap="round"/>
-          <circle cx="48" cy="58" r="8" fill="#FF9FB2"/>
-          <circle cx="72" cy="58" r="8" fill="#FF9FB2"/>
-          <circle cx="52" cy="62" r="3" fill="#5B4636"/>
-          <circle cx="68" cy="62" r="3" fill="#5B4636"/>
-          <path d="M56 70 Q60 74 64 70" stroke="#5B4636" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-          <circle cx="60" cy="82" r="11" fill="#FFFFFF" stroke="#E2604B" stroke-width="2.5"/>
-          <path d="M60 75 V89 M54 82 H66" stroke="#E2604B" stroke-width="3.5" stroke-linecap="round"/>
-        </svg>
-        <h3>白羊医官</h3>
-        <span class="tag t-accent">支援 · 牧师</span>
-        <ul>
-          <li><b>被动</b>：羊毛治愈，治疗血量最低友军 3</li>
-          <li><b>触发</b>：温暖咩叫，全体治疗 2</li>
-          <li><b>天赋</b>：羊毛丰收，每回合 +1 金币</li>
-        </ul>
-        <div class="stat-corner" aria-label="1星属性 攻击1 血量6">
-          <span class="stat-pill atk">⚔ 1</span>
-          <span class="stat-pill hp">❤ 6</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ================================================================
-     军队图鉴面板
+     军队图鉴面板（内容由 JS 渲染）
      ================================================================ -->
 <section class="overlay hidden" id="panel-index" role="dialog" aria-modal="true" aria-label="军队图鉴">
   <div class="panel">
     <div class="panel-head">
       <h2>
-        <!-- 图鉴书图标 -->
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 5 a4 4 0 0 1 4 -4 h12 v18 a4 4 0 0 1 -4 4 H6 a4 4 0 0 1 -4 -4 Z" fill="#FFC97A" stroke="#C9823B" stroke-width="1.5"/>
           <path d="M8 5 h12 v14 a4 4 0 0 1 -4 4 H8 Z" fill="#FFF9E8" stroke="#C9823B" stroke-width="1.5"/>
@@ -927,98 +539,18 @@ button {
       </h2>
       <button class="btn-close" data-close aria-label="关闭">✕</button>
     </div>
-    <div class="panel-note">图鉴收录已确认设计的动物军队。星数成长：1星 → 2星 → 3星（三合一升星，每星技能升级）；同名军队可直接叠放，每次 +1 攻击 +1 血量。</div>
-    <div class="cards">
-      <!-- 铁牛盾卫完整三阶 -->
-      <div class="card">
-        <svg class="avatar" viewBox="0 0 120 120" role="img" aria-label="铁牛盾卫头像">
-          <ellipse cx="60" cy="68" rx="34" ry="30" fill="#B98A5F"/>
-          <circle cx="34" cy="42" r="12" fill="#B98A5F"/>
-          <circle cx="86" cy="42" r="12" fill="#B98A5F"/>
-          <path d="M46 40 Q38 14 58 30" stroke="#F0E2C8" stroke-width="8" fill="none" stroke-linecap="round"/>
-          <path d="M74 40 Q82 14 62 30" stroke="#F0E2C8" stroke-width="8" fill="none" stroke-linecap="round"/>
-          <ellipse cx="60" cy="66" rx="24" ry="21" fill="#D9A05C"/>
-          <path d="M52 62 a3 3 0 0 1 6 0" fill="none" stroke="#5B4636" stroke-width="2.5" stroke-linecap="round"/>
-          <path d="M64 58 q4 2 3 7" fill="none" stroke="#5B4636" stroke-width="2.5" stroke-linecap="round"/>
-          <ellipse cx="48" cy="78" rx="10" ry="7" fill="#F0E2C8"/>
-          <circle cx="48" cy="78" r="2.5" fill="#5B4636"/>
-        </svg>
-        <h3>铁牛盾卫</h3>
-        <span class="tag">前线 · 盾卫</span>
-        <ul>
-          <li><b>1星</b>：攻 2 · 血 14；铜皮减伤 -1；牛角冲撞（前排单体 3 伤+延后）</li>
-          <li><b>2星</b>：攻 3 · 血 20；减伤 -2</li>
-          <li><b>3星</b>：攻 5 · 血 28；减伤 -3；冲撞全体 3 伤</li>
-          <li><b>天赋</b>：犟脾气，累计受 5 伤 +1 攻（最多 3 次）</li>
-        </ul>
-        <div class="stat-corner" aria-label="1星攻击2 血量14">
-          <span class="stat-pill atk">⚔ 2</span>
-          <span class="stat-pill hp">❤ 14</span>
-        </div>
-      </div>
-      <!-- 白羊医官完整三阶 -->
-      <div class="card">
-        <svg class="avatar" viewBox="0 0 120 120" role="img" aria-label="白羊医官头像">
-          <circle cx="44" cy="44" r="12" fill="#FFF6E5"/>
-          <circle cx="76" cy="44" r="12" fill="#FFF6E5"/>
-          <circle cx="36" cy="66" r="13" fill="#FFF6E5"/>
-          <circle cx="84" cy="66" r="13" fill="#FFF6E5"/>
-          <ellipse cx="60" cy="68" rx="32" ry="30" fill="#FFF6E5"/>
-          <ellipse cx="60" cy="64" rx="20" ry="18" fill="#FFE9F0"/>
-          <path d="M48 54 Q46 38 58 42" stroke="#E8B56C" stroke-width="7" fill="none" stroke-linecap="round"/>
-          <path d="M72 54 Q74 38 62 42" stroke="#E8B56C" stroke-width="7" fill="none" stroke-linecap="round"/>
-          <circle cx="48" cy="58" r="8" fill="#FF9FB2"/>
-          <circle cx="72" cy="58" r="8" fill="#FF9FB2"/>
-          <circle cx="52" cy="62" r="3" fill="#5B4636"/>
-          <circle cx="68" cy="62" r="3" fill="#5B4636"/>
-          <path d="M56 70 Q60 74 64 70" stroke="#5B4636" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-          <circle cx="60" cy="82" r="11" fill="#FFFFFF" stroke="#E2604B" stroke-width="2.5"/>
-          <path d="M60 75 V89 M54 82 H66" stroke="#E2604B" stroke-width="3.5" stroke-linecap="round"/>
-        </svg>
-        <h3>白羊医官</h3>
-        <span class="tag t-accent">支援 · 牧师</span>
-        <ul>
-          <li><b>1星</b>：攻 1 · 血 6；羊毛治愈（疗血最低友军 3）；温暖咩叫（全体治疗 2）</li>
-          <li><b>2星</b>：攻 2 · 血 10；单治 5 / 群治 3</li>
-          <li><b>3星</b>：攻 3 · 血 14；单治 8 / 群治 5</li>
-          <li><b>天赋</b>：羊毛丰收，每回合 +1 金币（3星 +2）</li>
-        </ul>
-        <div class="stat-corner" aria-label="1星攻击1 血量6">
-          <span class="stat-pill atk">⚔ 1</span>
-          <span class="stat-pill hp">❤ 6</span>
-        </div>
-      </div>
-      <!-- 待解锁占位 -->
-      <div class="card" style="opacity:.7;">
-        <div class="avatar" style="display:flex;align-items:center;justify-content:center;font-size:44px;background:#F4E8CC;border-radius:50%;">❔</div>
-        <h3>待解锁兵种</h3>
-        <span class="tag">敬请期待</span>
-        <ul>
-          <li>更多前线、输出、后勤、支援与核心兵种</li>
-          <li>如 步兵 / 弓手 / 农夫 / 牧师系等</li>
-        </ul>
-      </div>
-      <div class="card" style="opacity:.7;">
-        <div class="avatar" style="display:flex;align-items:center;justify-content:center;font-size:44px;background:#F4E8CC;border-radius:50%;">⭐</div>
-        <h3>升星强化</h3>
-        <span class="tag">敬请期待</span>
-        <ul>
-          <li>三合一合成升星，最高三星</li>
-          <li>同名叠放：每次 +1 攻 +1 血（无上限）</li>
-        </ul>
-      </div>
-    </div>
+    <div class="panel-note">图鉴收录已确认设计的动物军队。星数成长：1星 → 2星 → 3星（三合一升星，每星技能升级）；同名军队可直接叠放，每次 +1 攻击 +1 血量，无上限。</div>
+    <div class="cards" id="indexCards"></div>
   </div>
 </section>
 
 <!-- ================================================================
-     关卡章节面板
+     关卡章节面板（内容由 JS 渲染）
      ================================================================ -->
 <section class="overlay hidden" id="panel-levels" role="dialog" aria-modal="true" aria-label="关卡章节">
   <div class="panel">
     <div class="panel-head">
       <h2>
-        <!-- 地图旗帜图标 -->
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 3 L5 21" stroke="#C9823B" stroke-width="2.5" stroke-linecap="round"/>
           <path d="M5 4 L19 8 L5 12 Z" fill="#FF8A3D" stroke="#E05A12" stroke-width="1.5" stroke-linejoin="round"/>
@@ -1028,51 +560,18 @@ button {
       </h2>
       <button class="btn-close" data-close aria-label="关闭">✕</button>
     </div>
-    <div class="panel-note">主线共 4 章 + 无限模式。关卡类型：普通 / 商店 / 事件 / 精英（约第 4 关）/ Boss（约第 8 关）。土地只在精英关补充；普通作战关只送卡包。</div>
-    <div class="cards">
-      <!-- 第一章：已解锁（可演示），其余锁定 -->
-      <div class="card">
-        <h3>🌿 第 1 章 · 草原兽潮</h3>
-        <span class="tag">进行中 · 8 关</span>
-        <div class="progress-track" style="margin:8px 0;"><div class="progress-fill"></div></div>
-        <ul>
-          <li>开局 4 块土地 · 初始卡包五选二</li>
-          <li>第 4 关 <b>精英关</b>：+1 土地</li>
-          <li>第 8 关 <b>Boss</b>：草原狼王</li>
-        </ul>
-      </div>
-      <div class="card" style="opacity:.7;">
-        <h3>🏜️ 第 2 章 · 沙漠劫掠</h3>
-        <span class="tag">未解锁</span>
-        <ul><li>通关第 1 章后开放</li></ul>
-      </div>
-      <div class="card" style="opacity:.7;">
-        <h3>🦠 第 3 章 · 沼泽瘟疫</h3>
-        <span class="tag">未解锁</span>
-        <ul><li>敌人获得百分比伤害 / 穿透手段</li></ul>
-      </div>
-      <div class="card" style="opacity:.7;">
-        <h3>❄️ 第 4 章 · 冰原亡灵</h3>
-        <span class="tag">未解锁</span>
-        <ul><li>最终章 · 最强敌人</li></ul>
-      </div>
-      <div class="card" style="opacity:.7;">
-        <h3>♾️ 无限模式</h3>
-        <span class="tag">未解锁</span>
-        <ul><li>通关 4 章后开启，关卡无限循环、难度持续上升</li></ul>
-      </div>
-    </div>
+    <div class="panel-note">主线共 4 章 + 无限模式。关卡类型：普通 / 商店 / 事件 / 精英（约第 4 关）/ Boss（约第 8 关）。土地只在精英关补充；普通作战关送卡包。第 2-4 章与无限模式按已确认结构呈现（占位）。</div>
+    <div class="cards" id="levelCards"></div>
   </div>
 </section>
 
 <!-- ================================================================
-     商店面板
+     王国商店面板（内容由 JS 渲染）
      ================================================================ -->
 <section class="overlay hidden" id="panel-shop" role="dialog" aria-modal="true" aria-label="王国商店">
   <div class="panel">
     <div class="panel-head">
       <h2>
-        <!-- 购物袋图标 -->
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 8 h14 l-1 13 H6 Z" fill="#FFC97A" stroke="#C9823B" stroke-width="1.5" stroke-linejoin="round"/>
           <path d="M8 8 a4 4 0 0 1 8 0" fill="none" stroke="#C9823B" stroke-width="2"/>
@@ -1081,42 +580,8 @@ button {
       </h2>
       <button class="btn-close" data-close aria-label="关闭">✕</button>
     </div>
-    <div class="panel-note">商店规则（已定）：货币为 <b>金币</b>（招募 / 买卡 / 买地 / 道具）与 <b>粮食</b>（军队每回合维持费）。以下价格与库存为占位演示，待「数值体系」落地后替换。</div>
-    <div class="cards">
-      <div class="card shop-item">
-        <svg viewBox="0 0 64 64" aria-hidden="true">
-          <rect x="8" y="14" width="48" height="36" rx="6" fill="#B98A5F"/>
-          <path d="M16 14 V34 H48 V14" fill="#D9A05C"/>
-          <rect x="24" y="22" width="16" height="4" rx="2" fill="#FFF6E5"/>
-          <circle cx="50" cy="38" r="6" fill="#FFC94D" stroke="#E8A020" stroke-width="2"/>
-        </svg>
-        <div class="label" style="text-align:left">
-          <b>卡包</b> · 三选一 <span class="badge-soon">演示</span>
-          <div class="price">价格待定 · 金币</div>
-        </div>
-      </div>
-      <div class="card shop-item">
-        <svg viewBox="0 0 64 64" aria-hidden="true">
-          <rect x="14" y="34" width="36" height="18" rx="4" fill="#8A6F55"/>
-          <path d="M18 34 V20 Q32 12 46 20 V34" fill="#6FBF6B" stroke="#4FA857" stroke-width="2"/>
-          <circle cx="32" cy="28" r="4" fill="#FFF3C4"/>
-        </svg>
-        <div class="label" style="text-align:left">
-          <b>土地</b> · 精英关也可获得 <span class="badge-soon">演示</span>
-          <div class="price">价格待定 · 金币</div>
-        </div>
-      </div>
-      <div class="card shop-item">
-        <svg viewBox="0 0 64 64" aria-hidden="true">
-          <circle cx="32" cy="32" r="22" fill="#FFE8D2" stroke="#E8B56C" stroke-width="2"/>
-          <path d="M32 16 L36 28 L48 28 L38 36 L42 48 L32 40 L22 48 L26 36 L16 28 L28 28 Z" fill="#FFC94D"/>
-        </svg>
-        <div class="label" style="text-align:left">
-          <b>道具（未定）</b> <span class="badge-soon">占位</span>
-          <div class="price">敬请期待</div>
-        </div>
-      </div>
-    </div>
+    <div class="panel-note">商店规则（已定）：货币为 <b>金币</b>（招募 / 买卡 / 买地 / 道具）与 <b>粮食</b>（军队每回合维持费）。部分价格为本轮制作的基础占位值，可按反馈调整。</div>
+    <div class="cards" id="shopCards"></div>
   </div>
 </section>
 
@@ -1130,34 +595,20 @@ button {
       <button class="btn-close" data-close aria-label="关闭">✕</button>
     </div>
     <div class="panel-note">所有设置仅保存在当前会话内存中（刷新即恢复默认，符合单文件沙箱交付预期）。</div>
-    <!-- 每行一个开关：切换后写入内存 store -->
     <div class="setting-row">
-      <div>
-        <div class="s-title">音乐</div>
-        <div class="s-desc">王都主题曲</div>
-      </div>
+      <div><div class="s-title">音乐</div><div class="s-desc">王都主题曲（由 WebAudio 轻音演示）</div></div>
       <label class="switch"><input type="checkbox" data-setting="music" checked><span class="knob"></span></label>
     </div>
     <div class="setting-row">
-      <div>
-        <div class="s-title">音效</div>
-        <div class="s-desc">合成 / 战斗 / 按钮音效</div>
-      </div>
+      <div><div class="s-title">音效</div><div class="s-desc">合成 / 战斗 / 按钮音效</div></div>
       <label class="switch"><input type="checkbox" data-setting="sound" checked><span class="knob"></span></label>
     </div>
     <div class="setting-row">
-      <div>
-        <div class="s-title">震动反馈</div>
-        <div class="s-desc">手机端按键震动（沙箱演示环境不触发）</div>
-      </div>
+      <div><div class="s-title">震动反馈</div><div class="s-desc">手机端按键震动（沙箱演示环境不触发）</div></div>
       <label class="switch"><input type="checkbox" data-setting="vibration"><span class="knob"></span></label>
     </div>
     <div class="setting-row">
-      <div>
-        <div class="s-title">画面品质</div>
-        <div class="s-desc">高 / 中 / 低（动效与装饰密度）</div>
-      </div>
-      <!-- 品质用文字按钮组代替下拉，避免额外控件复杂度 -->
+      <div><div class="s-title">画面品质</div><div class="s-desc">高 / 中 / 低（动效与装饰密度）</div></div>
       <div style="display:flex;gap:6px;">
         <button class="stat-pill atk q-btn" data-quality="high">高</button>
         <button class="stat-pill hp q-btn" data-quality="mid">中</button>
@@ -1165,17 +616,133 @@ button {
       </div>
     </div>
     <div class="setting-row">
-      <div>
-        <div class="s-title">语言</div>
-        <div class="s-desc">界面语言（当前仅中文）</div>
-      </div>
+      <div><div class="s-title">语言</div><div class="s-desc">界面语言（当前仅中文）</div></div>
       <span style="font-weight:800;color:var(--ink-soft);">简体中文</span>
     </div>
-    <!-- 重置进度：内存态下仅清空当前会话的演示选择 -->
     <div style="margin-top:14px;text-align:right;">
-      <button class="menu-btn" data-reset style="width:auto;padding:10px 18px;font-size:14px;">
-        重置演示设置
-      </button>
+      <button class="menu-btn small" data-reset>重置演示设置</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     战斗界面（核心玩法，由 JS 渲染内容）
+     ================================================================ -->
+<section class="battle hidden" id="battleView" aria-label="战斗">
+  <!-- 头部：章节 / 回合 / 王都 / 资源 / 操作 -->
+  <div class="battle-head">
+    <div class="b-info">
+      <span class="b-chap" id="bChap">第 1 章 · 草原兽潮</span>
+      <span class="b-turn" id="bTurn">第 1 回合</span>
+      <span class="b-castle">
+        🏰 王都
+        <span class="hpbar"><i id="bCastleBar" style="width:100%"></i></span>
+        <span id="bCastleText">20/20</span>
+      </span>
+    </div>
+    <div class="b-info">
+      <span class="resource-chip" id="bGold"></span>
+      <span class="resource-chip" id="bFood"></span>
+      <span class="resource-chip" style="display:none" id="bLand"></span>
+      <button class="btn-mini" id="bHelp" aria-label="玩法帮助">?</button>
+      <button class="btn-mini" id="bPause" aria-label="暂停">⏸</button>
+      <button class="btn-mini" id="bExit">退出</button>
+    </div>
+  </div>
+
+  <!-- 阶段指示器：① 回合开始 → ② 操作 → ③ 商店 → ④ 战斗 → ⑤ 结算 -->
+  <div class="phase-track" id="phaseTrack" aria-label="回合阶段"></div>
+
+  <div class="battle-main">
+    <!-- 我方驻军（三排：前线 / 中排 / 后勤） -->
+    <div class="battle-field">
+      <div class="rank" data-rank="front">
+        <div class="rank-label">🛡️ 前线</div>
+        <div class="rank-slots" id="rankFront"></div>
+      </div>
+      <div class="rank" data-rank="mid">
+        <div class="rank-label">⚔️ 中排</div>
+        <div class="rank-slots" id="rankMid"></div>
+      </div>
+      <div class="rank" data-rank="back">
+        <div class="rank-label">🎒 后勤</div>
+        <div class="rank-slots" id="rankBack"></div>
+      </div>
+    </div>
+    <!-- 敌方来袭 -->
+    <div class="battle-enemy">
+      <div class="rank-label">🐾 敌方入侵</div>
+      <div class="enemy-list" id="enemyList"></div>
+    </div>
+  </div>
+
+  <div class="battle-foot">
+    <!-- 事件 / 商店窗口（阶段内容，由 JS 渲染） -->
+    <div id="eventArea"></div>
+    <div id="shopArea"></div>
+    <!-- 手牌（待部署军队） -->
+    <div class="hand" id="handArea"></div>
+    <!-- 阶段按钮与提示 -->
+    <div class="b-actions" id="bActions"></div>
+    <!-- 战报日志 -->
+    <div class="log-box" id="bLog" aria-live="polite"></div>
+  </div>
+
+  <!-- 结算面板 -->
+  <div class="result-panel hidden" id="resultPanel">
+    <div class="result-card" id="resultCard"></div>
+  </div>
+</section>
+
+<!-- ================================================================
+     暂停面板
+     ================================================================ -->
+<section class="overlay hidden" id="panel-pause" role="dialog" aria-modal="true" aria-label="暂停">
+  <div class="panel" style="max-width:420px;">
+    <div class="panel-head"><h2>⏸ 暂停</h2></div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button class="btn-action" id="pauseResume">继续游戏</button>
+      <button class="btn-action ghost" id="pauseMusic">音乐：开 / 关（当前开）</button>
+      <button class="btn-action ghost" id="pauseHelp">玩法帮助</button>
+      <button class="btn-action ghost" id="pauseQuit">保存并回到主菜单</button>
+    </div>
+    <div class="panel-tip" style="margin-top:10px;text-align:center;">进度保存在当前会话内存中（不写入浏览器存储）</div>
+  </div>
+</section>
+
+<!-- ================================================================
+     帮助面板
+     ================================================================ -->
+<section class="overlay hidden" id="panel-help" role="dialog" aria-modal="true" aria-label="玩法帮助">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>📖 玩法帮助</h2>
+      <button class="btn-close" data-close aria-label="关闭">✕</button>
+    </div>
+    <div class="panel-note">
+      <b>目标</b>：组建可爱动物军团，抵御一波波入侵，守护王都直到关卡胜利。<br>
+      <b>回合流程</b>：① 回合开始（被动/维持费）→ ② 操作（部署/叠放/三合一升星）→ ③ 商店（买军队/补给）→ ④ 战斗（我方先攻、敌方推进）→ ⑤ 结算奖励。
+    </div>
+    <div class="cards" style="grid-template-columns:1fr;">
+      <div class="card"><h3>🐮 如何变强</h3>
+        <ul>
+          <li><b>同名叠放</b>：把同名同星的手牌放到场上部队 → 攻击/血量各 +1，无上限</li>
+          <li><b>三合一升星</b>：场上同类型同星级 ≥3 个 → 合成 1 个高 1 星部队，技能大幅升级</li>
+          <li><b>排位规则</b>：敌人优先攻击前线，前线全灭才打中排，最后打后勤</li>
+        </ul>
+      </div>
+      <div class="card"><h3>💰 经济</h3>
+        <ul>
+          <li><b>金币</b>：招募、买卡包、买土地、买道具；来自胜利奖励与白羊天赋</li>
+          <li><b>粮食</b>：每支部队每回合消耗 1 点维持费；不足时王都会损失血量</li>
+          <li><b>土地</b>：扩大驻军容量；精英关免费 +1，商店也可购买</li>
+        </ul>
+      </div>
+      <div class="card"><h3>⌨️ 便捷操作</h3>
+        <ul>
+          <li>Esc 或 ⏸ 打开暂停；点击手牌后点击战场部署；支持键盘 Tab / Enter 操作</li>
+        </ul>
+      </div>
     </div>
   </div>
 </section>
@@ -1185,26 +752,18 @@ button {
 
 <script>
 /* =====================================================================
-   动物王国 - 首页交互脚本
+   动物王国 - 完整游戏引擎 v1.0.0
    ---------------------------------------------------------------------
-   设计约束（沙箱 iframe 运行时）：
-   - 禁止 localStorage / sessionStorage / cookie / alert / window.open 等 API
-   - 会话状态一律存放于内存 store；刷新回到初始值属预期
-   - 视图切换使用内存 currentView 驱动显示 / 隐藏
+   架构（自上而下）：
+   ① 内存 Store：唯一状态源（禁止 localStorage / sessionStorage / cookie）
+   ② 已确认军队数据：铁牛盾卫 / 白羊医官 1-3 星全数值（不编造）
+   ③ 占位数据：敌人 / 价格 / 起始资源（UI 内标注「占位」，可按反馈调整）
+   ④ 渲染层：主菜单、图鉴、章节、商店、设置、战斗界面
+   ⑤ 游戏流程：5 阶段回合（①被动 → ②操作 → ③商店 → ④战斗 → ⑤结算）
+   ⑥ 初始化与入场加载
    ===================================================================== */
 
-/* ---- 1. 内存 Store：唯一状态源 ---- */
-/* 所有需要“记住”的会话状态（音乐、音效、当前视图等）都放在这里 */
-var store = createMemoryStore({
-  view: 'main',        // 当前视图：main / play / index / levels / shop / settings
-  music: true,         // 音乐开关（内存态）
-  sound: true,         // 音效开关（内存态）
-  vibration: false,    // 震动开关（内存态）
-  quality: 'high',     // 画质：high / mid / low（内存态）
-  toastTimer: null     // toast 自动隐藏定时器句柄
-});
-
-/* 创建一个极简内存状态容器（替代 localStorage 的内存实现） */
+/* ---- 1. 内存 Store：唯一状态源，全部状态不落盘 ---- */
 function createMemoryStore(initial) {
   var state = Object.assign({}, initial);
   return {
@@ -1213,44 +772,298 @@ function createMemoryStore(initial) {
   };
 }
 
+var store = createMemoryStore({
+  view: 'main',            // 当前视图：main / index / levels / shop / settings / battle
+  music: true,             // 音乐开关（WebAudio 轻音演示）
+  sound: true,             // 音效开关
+  vibration: false,        // 震动开关（真实移动端生效）
+  quality: 'high',         // 画质：high / mid / low
+  toastTimer: null,
+  /* --- 游戏进度（内存态，刷新即重置） --- */
+  chapter: 1,              // 当前章节
+  level: 1,                // 当前关卡
+  maxLevel: 0,             // 已通关最高关卡（0 = 尚未通关第 1 关）
+  chapterBeaten: 0,        // 已通关章节数（0-4）
+  gold: 24,                // 金币（基础占位起始值，可按反馈调整）
+  food: 15,                // 粮食（基础占位起始值）
+  castle: 20,              // 王都当前血量（第 1 章基础占位值）
+  castleMax: 20,           // 王都最大血量
+  land: 4,                 // 已拥有土地数（开局 4 块，已确认）
+  army: [],                // 场上驻军：[{id,type,star,stack,atk,hp,maxHp,rank,dead,dmgTaken,angryCount}]
+  hand: [],                // 手牌：[{type,star,count}]（count = 同名同星副本数）
+  enemies: [],             // 当前波敌人：[{id,defKey,name,atk,hp,maxHp,delay}]
+  offers: [],              // 商店窗口当前 offer 列表
+  turn: 1,                 // 当前回合
+  wave: 1,                 // 当前波次
+  shopRefreshed: 0,        // 本回合商店已刷新次数（首次免费）
+  phase: 'start',          // 回合阶段：start / operate / shop / fight / settle
+  selectedHand: null,      // 手牌选中索引
+  selectedUnitId: null,    // 战场单位选中 ID
+  logLine: '',
+  eventDone: false         // 事件关事件是否已处理
+});
+
 /* ---- 2. DOM 快捷查询工具 ---- */
 var $ = function (selector) { return document.querySelector(selector); };
 var $$ = function (selector) { return Array.prototype.slice.call(document.querySelectorAll(selector)); };
 
-/* ---- 3. 入场加载画面 ---- */
-/* 依次播报“加载插件 / 技能 / 军队数据 / 王都地图”，完成后进入主菜单 */
-(function startLoader() {
-  var tips = ['正在加载插件与技能', '正在载入军队数据', '正在绘制王都地图', '准备出发！'];
-  var bar = $('#loadBar');
-  var tip = $('#loadTip');
-  var step = 0;
-  var timer = setInterval(function () {
-    step += 1;
-    if (bar) bar.style.width = Math.min(step * 25, 100) + '%';   // 进度条按 25% 步进
-    if (tip && tips[Math.min(step - 1, tips.length - 1)]) tip.textContent = tips[Math.min(step - 1, tips.length - 1)];
-    if (step >= 4) {
-      clearInterval(timer);
-      setTimeout(function () {
-        var loader = $('#loader');
-        var app = $('#app');
-        if (loader) loader.classList.add('hidden');   // 隐藏加载画面
-        if (app) app.classList.remove('hidden');      // 显示主舞台
-      }, 350);
-    }
-  }, 420);
-})();
+/* ---- 3. 已确认的军队定义（1-3 星全部数值，来源：用户已确认设计） ---- */
+var ARMY_DEFS = {
+  bull: {
+    key: 'bull',
+    name: '铁牛盾卫',
+    role: '前线',
+    roleLabel: '盾卫',
+    roleRank: 'front',
+    desc: '厚皮重甲，永远挡在队伍最前面。',
+    stars: [
+      { atk: 2, hp: 14,
+        passive: { name: '铜皮', desc: '受到伤害 -1', value: 1 },
+        trigger: { name: '牛角冲撞', desc: '对敌方前排单体造成 3 伤害并延后 1 回合', dmg: 3, all: false },
+        talent: { name: '犟脾气', desc: '累计受到 5 伤害后 +1 攻击（最多 3 次）', threshold: 5, bonus: 1, max: 3 } },
+      { atk: 3, hp: 20,
+        passive: { name: '铜皮', desc: '受到伤害 -2', value: 2 },
+        trigger: { name: '牛角冲撞', desc: '对敌方前排单体造成 3 伤害并延后 1 回合', dmg: 3, all: false },
+        talent: { name: '犟脾气', desc: '累计受到 5 伤害后 +1 攻击（最多 3 次）', threshold: 5, bonus: 1, max: 3 } },
+      { atk: 5, hp: 28,
+        passive: { name: '铜皮', desc: '受到伤害 -3', value: 3 },
+        trigger: { name: '牛角冲撞', desc: '对敌方全体造成 3 伤害并延后 1 回合', dmg: 3, all: true },
+        talent: { name: '犟脾气', desc: '累计受到 5 伤害后 +1 攻击（最多 3 次）', threshold: 5, bonus: 1, max: 3 } }
+    ]
+  },
+  sheep: {
+    key: 'sheep',
+    name: '白羊医官',
+    role: '支援',
+    roleLabel: '牧师',
+    roleRank: 'mid',
+    desc: '温柔地治愈每位受伤的伙伴。',
+    stars: [
+      { atk: 1, hp: 6,
+        passive: { name: '羊毛治愈', desc: '回合开始时治疗血量最低友军 3', value: 3 },
+        trigger: { name: '温暖咩叫', desc: '全体治疗 2', value: 2 },
+        talent: { name: '羊毛丰收', desc: '每回合 +1 金币（3星 +2）', value: 1 } },
+      { atk: 2, hp: 10,
+        passive: { name: '羊毛治愈', desc: '回合开始时治疗血量最低友军 5', value: 5 },
+        trigger: { name: '温暖咩叫', desc: '全体治疗 3', value: 3 },
+        talent: { name: '羊毛丰收', desc: '每回合 +1 金币（3星 +2）', value: 1 } },
+      { atk: 3, hp: 14,
+        passive: { name: '羊毛治愈', desc: '回合开始时治疗血量最低友军 8', value: 8 },
+        trigger: { name: '温暖咩叫', desc: '全体治疗 5', value: 5 },
+        talent: { name: '羊毛丰收', desc: '每回合 +2 金币（3星）', value: 2 } }
+    ]
+  }
+};
 
-/* ---- 4. 视图切换 ---- */
-/* 对应视图 id 到面板元素 id 的映射；'main' 对应主舞台 */
+/* ---- 4. 敌人定义（本轮制作的基础占位数值，可按反馈调整） ---- */
+var ENEMY_DEFS = {
+  wolf:    { name: '草原野狼',  atk: 3, hp: 9,  desc: '成群结队扑来' },
+  hyena:   { name: '鬣狗',      atk: 2, hp: 12, desc: '狡猾且缠人' },
+  vulture: { name: '秃鹫',      atk: 4, hp: 6,  desc: '从天空俯冲' },
+  boar:    { name: '野猪',      atk: 3, hp: 16, desc: '横冲直撞' },
+  bossWolf:{ name: '草原狼王',  atk: 6, hp: 34, desc: '第 1 章 Boss · 统率狼群' }
+};
+
+/* ---- 5. 章节与关卡（已确认结构；第 2-4 章与无限模式为占位呈现） ---- */
+var CHAPTERS = [
+  { id: 1, name: '第 1 章 · 草原兽潮', icon: '🌿', desc: '草原狼群入侵，守卫家园！', levels: 8, open: true },
+  { id: 2, name: '第 2 章 · 沙漠劫掠', icon: '🏜️', desc: '通关第 1 章后开放', levels: 8, open: false },
+  { id: 3, name: '第 3 章 · 沼泽瘟疫', icon: '🦠', desc: '通关第 2 章后开放', levels: 8, open: false },
+  { id: 4, name: '第 4 章 · 冰原亡灵', icon: '❄️', desc: '通关第 3 章后开放', levels: 8, open: false },
+  { id: 5, name: '♾️ 无限模式', icon: '♾️', desc: '通关 4 章后开启，难度持续上升', levels: 999, open: false, infinite: true }
+];
+
+/* 第 1 章 8 关类型（已确认：普通 / 商店 / 事件 / 精英约第4关 / Boss约第8关） */
+var LEVEL_TYPES = ['normal', 'normal', 'shop', 'elite', 'normal', 'event', 'normal', 'boss'];
+var LEVEL_TYPE_LABEL = { normal: '普通关', shop: '商店关', elite: '精英关', event: '事件关', boss: 'Boss 关' };
+
+/* 基础占位价格（可按反馈调整，UI 内不冒充已确认设计） */
+var PRICE = {
+  pack: 8,                 // 主界面商店：卡包（三选一）
+  land: 12,                // 主界面商店：土地
+  food: 3,                 // 主界面商店：3 金币 = 8 粮食
+  starCost: { 1: 2, 2: 5, 3: 10 },  // 战斗内商店军队价格
+  refresh: 2               // 战斗内商店额外刷新费用
+};
+
+/* =====================================================================
+   6. SVG 头像库（全部内联矢量，无外部资源）
+   ===================================================================== */
+
+/* 铁牛盾卫头像 */
+function bullSvg() {
+  return '<svg viewBox="0 0 120 120" role="img" aria-label="铁牛盾卫" style="width:100%;height:100%">' +
+    '<ellipse cx="60" cy="68" rx="34" ry="30" fill="#B98A5F"/>' +
+    '<circle cx="34" cy="42" r="12" fill="#B98A5F"/>' +
+    '<circle cx="86" cy="42" r="12" fill="#B98A5F"/>' +
+    '<path d="M46 40 Q38 14 58 30" stroke="#F0E2C8" stroke-width="8" fill="none" stroke-linecap="round"/>' +
+    '<path d="M74 40 Q82 14 62 30" stroke="#F0E2C8" stroke-width="8" fill="none" stroke-linecap="round"/>' +
+    '<ellipse cx="60" cy="66" rx="24" ry="21" fill="#D9A05C"/>' +
+    '<path d="M52 62 a3 3 0 0 1 6 0" fill="none" stroke="#5B4636" stroke-width="2.5" stroke-linecap="round"/>' +
+    '<path d="M64 58 q4 2 3 7" fill="none" stroke="#5B4636" stroke-width="2.5" stroke-linecap="round"/>' +
+    '<ellipse cx="48" cy="78" rx="10" ry="7" fill="#F0E2C8"/>' +
+    '<circle cx="48" cy="78" r="2.5" fill="#5B4636"/>' +
+    '<ellipse cx="46" cy="86" rx="5" ry="3" fill="#5B4636"/>' +
+    '<ellipse cx="76" cy="86" rx="5" ry="3" fill="#5B4636"/>' +
+    '<circle cx="100" cy="50" r="17" fill="#E8B56C" stroke="#C9823B" stroke-width="3"/>' +
+    '<path d="M93 56 L97 53 L101 57 L104 52 L100 48 L104 45 L97 43 L94 48 L93 44 Z" fill="#C9823B" transform="translate(3,6) scale(0.72)"/>' +
+    '</svg>';
+}
+
+/* 白羊医官头像 */
+function sheepSvg() {
+  return '<svg viewBox="0 0 120 120" role="img" aria-label="白羊医官" style="width:100%;height:100%">' +
+    '<circle cx="44" cy="44" r="12" fill="#FFF6E5"/>' +
+    '<circle cx="76" cy="44" r="12" fill="#FFF6E5"/>' +
+    '<circle cx="36" cy="66" r="13" fill="#FFF6E5"/>' +
+    '<circle cx="84" cy="66" r="13" fill="#FFF6E5"/>' +
+    '<ellipse cx="60" cy="68" rx="32" ry="30" fill="#FFF6E5"/>' +
+    '<ellipse cx="60" cy="64" rx="20" ry="18" fill="#FFE9F0"/>' +
+    '<path d="M48 54 Q46 38 58 42" stroke="#E8B56C" stroke-width="7" fill="none" stroke-linecap="round"/>' +
+    '<path d="M72 54 Q74 38 62 42" stroke="#E8B56C" stroke-width="7" fill="none" stroke-linecap="round"/>' +
+    '<circle cx="48" cy="58" r="8" fill="#FF9FB2"/>' +
+    '<circle cx="72" cy="58" r="8" fill="#FF9FB2"/>' +
+    '<circle cx="52" cy="62" r="3" fill="#5B4636"/>' +
+    '<circle cx="68" cy="62" r="3" fill="#5B4636"/>' +
+    '<path d="M56 70 Q60 74 64 70" stroke="#5B4636" stroke-width="2.5" fill="none" stroke-linecap="round"/>' +
+    '<circle cx="60" cy="82" r="11" fill="#FFFFFF" stroke="#E2604B" stroke-width="2.5"/>' +
+    '<path d="M60 75 V89 M54 82 H66" stroke="#E2604B" stroke-width="3.5" stroke-linecap="round"/>' +
+    '</svg>';
+}
+
+/* 敌人头像（按敌人类型切换配色，Boss 加王冠） */
+function enemySvg(defKey) {
+  var fill = '#9A7B55';
+  var ear = '#7C5F3F';
+  if (defKey === 'wolf' || defKey === 'bossWolf') { fill = '#8E9AA8'; ear = '#6A7684'; }
+  if (defKey === 'hyena') { fill = '#B08A5E'; ear = '#8A6A44'; }
+  if (defKey === 'vulture') { fill = '#7A6A5A'; ear = '#5D4F42'; }
+  if (defKey === 'boar') { fill = '#9C6B4F'; ear = '#7A4F38'; }
+  var crown = defKey === 'bossWolf' ? '<path d="M38 34 L42 26 L48 32 L50 24 L52 32 L58 26 L62 34 Z" fill="#FFC94D" stroke="#C9823B" stroke-width="2"/>' : '';
+  return '<svg viewBox="0 0 100 100" role="img" aria-label="敌人" style="width:100%;height:100%">' +
+    '<ellipse cx="50" cy="62" rx="28" ry="24" fill="' + fill + '"/>' +
+    '<circle cx="24" cy="42" r="11" fill="' + fill + '"/>' +
+    '<circle cx="76" cy="42" r="11" fill="' + fill + '"/>' +
+    '<circle cx="24" cy="42" r="4" fill="' + ear + '"/>' +
+    '<circle cx="76" cy="42" r="4" fill="' + ear + '"/>' +
+    '<ellipse cx="50" cy="58" rx="20" ry="17" fill="#F4E8CC"/>' +
+    '<circle cx="43" cy="55" r="3.5" fill="#5B4636"/>' +
+    '<circle cx="57" cy="55" r="3.5" fill="#5B4636"/>' +
+    '<path d="M44 64 Q50 69 56 64" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>' +
+    '<path d="M30 74 L26 84 L34 78 Z" fill="#F4E8CC"/>' +
+    '<path d="M70 74 L74 84 L66 78 Z" fill="#F4E8CC"/>' +
+    crown +
+    '</svg>';
+}
+
+/* 根据军队 key 返回头像 SVG */
+function armySvg(key) {
+  return key === 'bull' ? bullSvg() : sheepSvg();
+}
+
+/* ---- 7. 通用工具 ---- */
+
+/* 随机整数 [min, max]（含两端） */
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/* 洗牌（Fisher-Yates） */
+function shuffle(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+/* 星级文本：1星 ★☆☆ / 2星 ★★☆ / 3星 ★★★ */
+function starsText(n) {
+  var s = '';
+  for (var i = 0; i < n; i++) s += '★';
+  for (var j = n; j < 3; j++) s += '☆';
+  return s;
+}
+
+/* Toast 轻提示（替代 alert，满足沙箱约束） */
+function showToast(message) {
+  var toast = $('#toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(store.get('toastTimer'));
+  store.set({ toastTimer: setTimeout(function () { toast.classList.remove('show'); }, 2000) });
+}
+
+/* ---- 8. 简易音效：WebAudio 短音（无外部素材；沙箱可用则播放，否则静默） ---- */
+var audioCtx = null;
+function playSound(kind) {
+  var s = store.get();
+  if (!s.sound) return;
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  }
+  try {
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    var freq = kind === 'merge' ? 660 : kind === 'deploy' ? 520 : kind === 'attack' ? 300 : kind === 'win' ? 780 : 440;
+    var dur = kind === 'win' ? 0.5 : 0.2;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.start();
+    osc.stop(audioCtx.currentTime + dur);
+  } catch (e) { /* 静默失败 */ }
+}
+
+/* 震动反馈（真实移动端） */
+function vibrate(ms) {
+  var s = store.get();
+  if (!s.vibration) return;
+  try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* 忽略 */ }
+}
+
+/* 顶部资源刷新 */
+function refreshTopResources() {
+  var box = $('#topResources');
+  if (!box) return;
+  var s = store.get();
+  box.innerHTML =
+    '<div class="resource-chip" title="金币：用于招募、购买卡包与土地">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#FFC94D" stroke="#E8A020" stroke-width="2"/>' +
+      '<path d="M12 6.5 L13.2 9.6 L16.4 9.8 L13.9 11.9 L14.7 15 L12 13.2 L9.3 15 L10.1 11.9 L7.6 9.8 L10.8 9.6 Z" fill="#F0A020"/></svg>' +
+      '<span>金币 ' + s.gold + '</span></div>' +
+    '<div class="resource-chip" title="粮食：军队每回合维持费">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 C7 7 4 11 4 14 a8 8 0 0 0 16 0 C20 11 17 7 12 3 Z" fill="#8ED081" stroke="#4FA857" stroke-width="2"/>' +
+      '<path d="M12 3 C12 8 12 11 12 14" stroke="#4FA857" stroke-width="2"/></svg>' +
+      '<span>粮食 ' + s.food + '</span></div>' +
+    '<div class="resource-chip" title="已拥有土地">🏞️ 土地 ' + s.land + '</div>';
+}
+
+/* 战报日志（战斗内，单一最新一行 + 滚动追加） */
+function addLog(msg) {
+  var box = $('#bLog');
+  if (!box) return;
+  var line = document.createElement('div');
+  line.innerHTML = msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+  while (box.children.length > 8) box.removeChild(box.firstChild);
+}
+
+/* =====================================================================
+   9. 视图切换（主菜单 ↔ Overlay 面板）
+   ===================================================================== */
 var VIEW_MAP = {
-  'play': 'panel-play',
   'index': 'panel-index',
   'levels': 'panel-levels',
   'shop': 'panel-shop',
   'settings': 'panel-settings'
 };
 
-/* 显示某个视图：主菜单显示舞台，其他视图打开对应 overlay */
 function showView(viewId) {
   store.set({ view: viewId });
   var showMain = viewId === 'main';
@@ -1259,7 +1072,6 @@ function showView(viewId) {
     var el = $('#' + VIEW_MAP[key]);
     if (el) el.classList.toggle('hidden', key !== viewId);
   });
-  /* 打开 overlay 时把焦点放到第一个可聚焦控件，方便键盘用户 */
   if (!showMain) {
     var panel = $('#' + VIEW_MAP[viewId]);
     if (panel) {
@@ -1269,80 +1081,1311 @@ function showView(viewId) {
   }
 }
 
-/* 菜单按钮点击 → 切换视图 */
-$$('.menu-btn[data-view]').forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    showView(btn.getAttribute('data-view'));
-  });
-});
-
-/* 关闭按钮（data-close）→ 返回主菜单 */
-$$('[data-close]').forEach(function (btn) {
-  btn.addEventListener('click', function () { showView('main'); });
-});
-
-/* 键盘：Esc 关闭当前 overlay 并返回主菜单 */
-document.addEventListener('keydown', function (event) {
-  if (event.key === 'Escape' && store.get('view') !== 'main') showView('main');
-});
-
-/* ---- 5. 设置交互 ---- */
-/* 音乐 / 音效 / 震动：checkbox 状态写入内存 store */
-$$('input[data-setting]').forEach(function (input) {
-  input.addEventListener('change', function () {
-    var key = input.getAttribute('data-setting');
-    store.set({ [key]: input.checked });
-    /* 演示反馈：切换音效时给出 toast（不使用 alert） */
-    if (key === 'sound') showToast(input.checked ? '音效已开启' : '音效已关闭');
-    if (key === 'music') showToast(input.checked ? '音乐已开启' : '音乐已关闭');
-  });
-});
-
-/* 画质按钮：点击高亮当前档位 */
-var QUALITY_LABEL = { high: '画质：高', mid: '画质：中', low: '画质：低' };
-$$('.q-btn').forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    var level = btn.getAttribute('data-quality');
-    store.set({ quality: level });
-    refreshQualityButtons();
-    showToast(QUALITY_LABEL[level]);
-  });
-});
-function refreshQualityButtons() {
-  var current = store.get('quality');
-  $$('.q-btn').forEach(function (btn) {
-    var level = btn.getAttribute('data-quality');
-    var active = level === current;
-    btn.style.opacity = active ? '1' : '0.45';
-    btn.style.outline = active ? '2px solid #5B4636' : 'none';
-  });
-}
-
-/* 重置演示设置：恢复到初始化状态并刷新 UI */
-$$('[data-reset]').forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    store.set({ music: true, sound: true, vibration: false, quality: 'high' });
-    $$('input[data-setting]').forEach(function (input) {
-      input.checked = store.get(input.getAttribute('data-setting'));
+function bindMenuEvents() {
+  $$('.menu-btn[data-view]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var v = btn.getAttribute('data-view');
+      if (v === 'play') { startCampaign(); return; }
+      playSound('click');
+      showView(v);
     });
-    refreshQualityButtons();
-    showToast('演示设置已重置');
   });
-});
-
-/* 初始化画质按钮高亮 */
-refreshQualityButtons();
-
-/* ---- 6. Toast 轻提示 ---- */
-/* 页内 toast：替代 alert，展示操作反馈，2 秒后自动消失 */
-function showToast(message) {
-  var toast = $('#toast');
-  if (!toast) return;
-  toast.textContent = message;
-  toast.classList.add('show');
-  clearTimeout(store.get('toastTimer'));
-  store.set({ toastTimer: setTimeout(function () { toast.classList.remove('show'); }, 2000) });
+  $$('[data-close]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var inHelp = !$('#panel-help').classList.contains('hidden');
+      if (inHelp) { $('#panel-help').classList.add('hidden'); return; }
+      showView('main');
+    });
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      var pause = $('#panel-pause');
+      if (!pause.classList.contains('hidden')) { closePause(); return; }
+      var help = $('#panel-help');
+      if (!help.classList.contains('hidden')) { help.classList.add('hidden'); return; }
+      var inBattle = store.get('view') === 'battle';
+      if (inBattle) { openPause(); return; }
+      if (store.get('view') !== 'main') showView('main');
+    }
+  });
 }
+
+/* =====================================================================
+   10. 军队图鉴渲染（全部已确认数值，不编造）
+   ===================================================================== */
+function renderIndex() {
+  var box = $('#indexCards');
+  if (!box) return;
+  var html = '';
+  Object.keys(ARMY_DEFS).forEach(function (key) {
+    var def = ARMY_DEFS[key];
+    var rows = '';
+    for (var i = 0; i < 3; i++) {
+      var st = def.stars[i];
+      rows += '<li><b>' + (i + 1) + '星</b>：攻 ' + st.atk + ' · 血 ' + st.hp + '；被动 ' + st.passive.name + '（' + st.passive.desc + '）</li>';
+    }
+    rows += '<li><b>触发</b>：' + def.stars[0].trigger.name + ' —— ' + def.stars[0].trigger.desc +
+      (def.stars[2].trigger.all ? '；3星升级为全体效果' : '') + '</li>';
+    rows += '<li><b>天赋</b>：' + def.stars[0].talent.name + ' —— ' + def.stars[0].talent.desc + '</li>';
+    html += '<div class="card">' +
+      '<div class="avatar">' + armySvg(key) + '</div>' +
+      '<h3>' + def.name + '</h3>' +
+      '<span class="tag' + (def.role === '支援' ? ' t-accent' : '') + '">' + def.role + ' · ' + def.roleLabel + '</span>' +
+      '<ul>' + rows + '</ul>' +
+      '<div class="stat-corner"><span class="stat-pill atk">⚔ ' + def.stars[0].atk + '</span><span class="stat-pill hp">❤ ' + def.stars[0].hp + '</span></div>' +
+      '</div>';
+  });
+  html += '<div class="card" style="opacity:.7;">' +
+    '<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-size:44px;background:#F4E8CC;border-radius:50%;">❔</div>' +
+    '<h3>待解锁兵种</h3><span class="tag">敬请期待</span>' +
+    '<ul><li>更多前线、输出、后勤、支援与核心兵种</li><li>如 步兵 / 弓手 / 农夫 / 牧师系等</li></ul></div>';
+  box.innerHTML = html;
+}
+
+/* =====================================================================
+   11. 章节渲染（第 1 章完整；第 2-4 章 + 无限模式占位）
+   ===================================================================== */
+function renderLevels() {
+  var box = $('#levelCards');
+  if (!box) return;
+  var s = store.get();
+  var html = '';
+  CHAPTERS.forEach(function (ch) {
+    var maxLv = s.maxLevel;
+    var lineDone = 0;
+    if (ch.id === 1) lineDone = Math.min(maxLv, 8);
+    else if (ch.id === 2 && maxLv >= 8) lineDone = 0;
+    if (ch.id === 1) {
+      html += '<div class="card">' +
+        '<h3>' + ch.icon + ' ' + ch.name + '</h3>' +
+        '<span class="tag t-gold">' + (lineDone >= 8 ? '已通关' : (lineDone > 0 ? '进行中 · 已过 ' + lineDone + ' 关' : '进行中 · ' + ch.levels + ' 关')) + '</span>' +
+        '<div class="progress-track" style="margin:8px 0;"><div class="progress-fill" style="width:' + (lineDone / 8 * 100) + '%"></div></div>' +
+        '<ul>' +
+        '<li><b>开局：</b>4 块土地 · 初始卡包五选二</li>' +
+        '<li><b>第 4 关</b> 精英关：+1 土地</li>' +
+        '<li><b>第 8 关</b> Boss：草原狼王</li>' +
+        '<li>类型：普通 / 商店 / 事件 / 精英 / Boss</li>' +
+        '</ul>' +
+        '<div style="margin-top:10px;"><button class="btn-action ghost" data-chapter="1">' +
+        (lineDone >= 8 ? '再来一次' : '继续闯关') + '</button></div>' +
+        '</div>';
+    } else if (ch.infinite) {
+      var unlocked = s.chapterBeaten >= 4;
+      html += '<div class="card" style="opacity:.7;">' +
+        '<h3>' + ch.icon + ' ' + ch.name + '</h3>' +
+        '<span class="tag">' + (unlocked ? '可进入' : '通关 4 章后开启') + '</span>' +
+        '<ul><li>关卡无限循环、难度持续上升</li><li>具体规则待后续版本制作（占位）</li></ul>' +
+        (unlocked ? '<div style="margin-top:10px;"><button class="btn-action ghost" data-chapter="5">进入</button></div>' : '') +
+        '</div>';
+    } else {
+      var chUnlocked = ch.id === 2 ? s.chapterBeaten >= 1 : ch.id - 1 <= s.chapterBeaten;
+      html += '<div class="card" style="opacity:.7;">' +
+        '<h3>' + ch.icon + ' ' + ch.name + '</h3>' +
+        '<span class="tag">' + (chUnlocked ? '可进入（占位）' : '通关上一章后开放') + '</span>' +
+        '<ul><li>章节结构按已确认框架呈现</li><li>具体敌人与奖励待后续版本制作（占位）</li></ul>' +
+        (chUnlocked ? '<div style="margin-top:10px;"><button class="btn-action ghost" data-chapter="' + ch.id + '">进入</button></div>' : '') +
+        '</div>';
+    }
+  });
+  box.innerHTML = html;
+  box.querySelectorAll('[data-chapter]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var chId = Number(btn.getAttribute('data-chapter'));
+      if (chId === 1) { startCampaign(); return; }
+      showToast('第 ' + chId + ' 章结构已就绪，具体内容后续版本制作（占位）');
+    });
+  });
+}
+
+/* =====================================================================
+   12. 主界面商店渲染（商店面板 + 购买逻辑）
+   ===================================================================== */
+function renderShop() {
+  var box = $('#shopCards');
+  if (!box) return;
+  box.innerHTML =
+    '<div class="card shop-item">' +
+      '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="14" width="48" height="36" rx="6" fill="#B98A5F"/>' +
+      '<path d="M16 14 V34 H48 V14" fill="#D9A05C"/><rect x="24" y="22" width="16" height="4" rx="2" fill="#FFF6E5"/>' +
+      '<circle cx="50" cy="38" r="6" fill="#FFC94D" stroke="#E8A020" stroke-width="2"/></svg>' +
+      '<div class="label"><b>卡包</b> · 三选一<span class="badge-soon">占位价</span>' +
+      '<div class="price">' + PRICE.pack + ' 金币</div><div style="font-size:11px;color:var(--ink-soft)">随机 3 张军队卡选 1</div></div>' +
+      '<button class="btn-buy" data-buy="pack">购买</button></div>' +
+    '<div class="card shop-item">' +
+      '<svg viewBox="0 0 64 64" aria-hidden="true"><rect x="14" y="34" width="36" height="18" rx="4" fill="#8A6F55"/>' +
+      '<path d="M18 34 V20 Q32 12 46 20 V34" fill="#6FBF6B" stroke="#4FA857" stroke-width="2"/>' +
+      '<circle cx="32" cy="28" r="4" fill="#FFF3C4"/></svg>' +
+      '<div class="label"><b>土地</b> · 扩充驻军格<span class="badge-soon">占位价</span>' +
+      '<div class="price">' + PRICE.land + ' 金币</div><div style="font-size:11px;color:var(--ink-soft)">精英关也可免费 +1 土地</div></div>' +
+      '<button class="btn-buy" data-buy="land">购买</button></div>' +
+    '<div class="card shop-item">' +
+      '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="22" fill="#FFE8D2" stroke="#E8B56C" stroke-width="2"/>' +
+      '<path d="M32 16 L36 28 L48 28 L38 36 L42 48 L32 40 L22 48 L26 36 L16 28 L28 28 Z" fill="#FFC94D"/></svg>' +
+      '<div class="label"><b>道具</b> · 未定<span class="badge-soon">占位</span>' +
+      '<div class="price">敬请期待</div><div style="font-size:11px;color:var(--ink-soft)">后续版本开放</div></div>' +
+      '<button class="btn-buy" disabled>未开放</button></div>' +
+    '<div class="card shop-item">' +
+      '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M12 20 C24 8 40 8 52 20 L46 26 C38 18 26 18 18 26 Z" fill="#8ED081"/>' +
+      '<rect x="12" y="22" width="40" height="20" rx="4" fill="#FFF9E8" stroke="#4FA857" stroke-width="2"/>' +
+      '<path d="M12 32 Q32 42 52 32" stroke="#4FA857" stroke-width="2" fill="none"/></svg>' +
+      '<div class="label"><b>粮食</b> · 补给<span class="badge-soon">占位价</span>' +
+      '<div class="price">' + PRICE.food + ' 金币 = 8 粮食</div><div style="font-size:11px;color:var(--ink-soft)">军队维持费不足时购买</div></div>' +
+      '<button class="btn-buy" data-buy="food">购买</button></div>';
+
+  box.querySelectorAll('[data-buy]').forEach(function (btn) {
+    btn.addEventListener('click', function () { buyItem(btn.getAttribute('data-buy')); });
+  });
+}
+
+/* 主界面购买操作 */
+function buyItem(type) {
+  var s = store.get();
+  if (type === 'pack') {
+    if (s.gold < PRICE.pack) { showToast('金币不足，需要 ' + PRICE.pack + ' 金币'); return; }
+    store.set({ gold: s.gold - PRICE.pack });
+    playSound('click');
+    openPackPick(3, 'pickOne');
+  } else if (type === 'land') {
+    if (s.gold < PRICE.land) { showToast('金币不足，需要 ' + PRICE.land + ' 金币'); return; }
+    store.set({ gold: s.gold - PRICE.land, land: s.land + 1 });
+    showToast('获得 1 块土地！当前 ' + store.get('land') + ' 块');
+    refreshTopResources();
+  } else if (type === 'food') {
+    if (s.gold < PRICE.food) { showToast('金币不足，需要 ' + PRICE.food + ' 金币'); return; }
+    store.set({ gold: s.gold - PRICE.food, food: s.food + 8 });
+    showToast('粮食 +8');
+    refreshTopResources();
+  }
+}
+
+/* =====================================================================
+   13. 设置面板绑定
+   ===================================================================== */
+function bindSettingEvents() {
+  $$('input[data-setting]').forEach(function (input) {
+    input.addEventListener('change', function () {
+      var key = input.getAttribute('data-setting');
+      var patch = {};
+      patch[key] = input.checked;
+      store.set(patch);
+      if (key === 'sound') showToast(input.checked ? '音效已开启' : '音效已关闭');
+      if (key === 'music') showToast(input.checked ? '音乐已开启' : '音乐已关闭');
+    });
+  });
+  var QUALITY_LABEL = { high: '画质：高', mid: '画质：中', low: '画质：低' };
+  $$('.q-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var level = btn.getAttribute('data-quality');
+      store.set({ quality: level });
+      refreshQualityButtons();
+      showToast(QUALITY_LABEL[level]);
+    });
+  });
+  function refreshQualityButtons() {
+    var current = store.get('quality');
+    $$('.q-btn').forEach(function (btn) {
+      var level = btn.getAttribute('data-quality');
+      btn.style.opacity = level === current ? '1' : '0.45';
+      btn.style.outline = level === current ? '2px solid #5B4636' : 'none';
+    });
+  }
+  $$('[data-reset]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      store.set({ music: true, sound: true, vibration: false, quality: 'high' });
+      $$('input[data-setting]').forEach(function (input) {
+        input.checked = store.get(input.getAttribute('data-setting'));
+      });
+      refreshQualityButtons();
+      showToast('演示设置已重置');
+    });
+  });
+  refreshQualityButtons();
+}
+
+/* 暂停面板 */
+function openPause() {
+  var s = store.get();
+  $('#pauseMusic').textContent = s.music ? '音乐：开（点击关闭）' : '音乐：关（点击开启）';
+  $('#panel-pause').classList.remove('hidden');
+}
+function closePause() { $('#panel-pause').classList.add('hidden'); }
+function bindPauseEvents() {
+  $('#pauseResume').addEventListener('click', function () { closePause(); });
+  $('#pauseMusic').addEventListener('click', function () {
+    var s = store.get();
+    store.set({ music: !s.music });
+    $('#pauseMusic').textContent = store.get('music') ? '音乐：开（点击关闭）' : '音乐：关（点击开启）';
+    showToast(store.get('music') ? '音乐已开启' : '音乐已关闭');
+  });
+  $('#pauseHelp').addEventListener('click', function () {
+    closePause();
+    $('#panel-help').classList.remove('hidden');
+  });
+  $('#pauseQuit').addEventListener('click', function () {
+    closePause();
+    exitBattle(false);
+  });
+  $('#bPause').addEventListener('click', openPause);
+  $('#bHelp').addEventListener('click', function () { $('#panel-help').classList.remove('hidden'); });
+}
+
+/* =====================================================================
+   14. 战斗模块：开始战役 / 关卡初始化 / 5 阶段回合流程
+   ===================================================================== */
+
+/* ---- 14.1 开始战役（主菜单「开始游戏」） ---- */
+function startCampaign() {
+  var s = store.get();
+  // 已通关第 1 章（maxLevel>=8）→ 从第 1 章重新开始（新旅程）
+  var isNew = s.maxLevel >= 8 || s.maxLevel === 0;
+  var startLevel = isNew ? 1 : Math.min(s.maxLevel + 1, 8);
+  var patch = {
+    view: 'battle',
+    chapter: 1,
+    level: startLevel,
+    turn: 1,
+    wave: 1,
+    phase: 'start',
+    selectedHand: null,
+    selectedUnitId: null,
+    enemies: [],
+    offers: [],
+    shopRefreshed: 0,
+    eventDone: false,
+    castle: 20,
+    castleMax: 20
+  };
+  if (isNew) {
+    patch.gold = 24;          // 基础占位起始资源（可按反馈调整）
+    patch.food = 15;
+    patch.land = 4;           // 开局 4 块土地（已确认设计）
+    patch.army = [];
+    patch.hand = [];
+    patch.maxLevel = 0;
+  }
+  store.set(patch);
+  $('#resultPanel').classList.add('hidden');
+  $('#battleView').classList.remove('hidden');
+  $('#app').classList.add('hidden');
+  Object.keys(VIEW_MAP).forEach(function (key) {
+    var el = $('#' + VIEW_MAP[key]);
+    if (el) el.classList.add('hidden');
+  });
+  clearBattleLog();
+  beginLevel(startLevel, isNew);
+}
+
+/* ---- 14.2 初始化一关 ---- */
+function beginLevel(levelNo, isFirst) {
+  var s = store.get();
+  store.set({
+    level: levelNo,
+    turn: 1,
+    wave: 1,
+    phase: 'start',
+    enemies: [],
+    selectedHand: null,
+    selectedUnitId: null,
+    shopRefreshed: 0,
+    eventDone: false,
+    castle: s.castleMax,
+    logLine: ''
+  });
+  var lvType = LEVEL_TYPES[levelNo - 1] || 'normal';
+  addLog('进入 <b>第 ' + s.chapter + ' 章 · 第 ' + levelNo + ' 关</b>（' + LEVEL_TYPE_LABEL[lvType] + '）');
+  refreshTopResources();
+
+  // 精英关免费 +1 土地（已确认设计：土地只在精英关补充）
+  if (lvType === 'elite') {
+    store.set({ land: store.get('land') + 1 });
+    addLog('✨ 精英关奖励：获得 1 块土地（当前 ' + store.get('land') + ' 块）');
+    showToast('✨ 精英关：土地 +1');
+  }
+
+  // 第 1 关：初始卡包五选二（已确认设计）
+  if (isFirst && levelNo === 1) {
+    openPackPick(5, 'pickTwo');
+    return;
+  }
+  // 商店关：先展示商店（购物后开始战斗）
+  if (lvType === 'shop') {
+    startShopPhase();
+    return;
+  }
+  // 事件关：展示事件选择
+  if (lvType === 'event') {
+    openEvent();
+    return;
+  }
+  // 其他关卡：进入①回合开始阶段
+  renderBattle();
+  setPhase('start');
+  runStartPassive();
+}
+
+/* ---- 14.3 阶段指示器渲染（① ② ③ ④ ⑤） ---- */
+var PHASE_META = [
+  { key: 'start',   label: '① 回合开始' },
+  { key: 'operate', label: '② 操作' },
+  { key: 'shop',    label: '③ 商店' },
+  { key: 'fight',   label: '④ 战斗' },
+  { key: 'settle',  label: '⑤ 结算' }
+];
+function renderPhaseTrack() {
+  var box = $('#phaseTrack');
+  if (!box) return;
+  var current = store.get('phase');
+  var order = ['start', 'operate', 'shop', 'fight', 'settle'];
+  var currentIdx = order.indexOf(current);
+  var html = '';
+  PHASE_META.forEach(function (p, i) {
+    if (i > 0) html += '<span class="phase-arrow" aria-hidden="true">›</span>';
+    var cls = 'phase-step';
+    if (i === currentIdx) cls += ' active';
+    else if (i < currentIdx) cls += ' done';
+    else if (current === 'fight' && i === 4) cls += ' done'; // 战后结算预览
+    html += '<span class="' + cls + '">' + p.label + '</span>';
+  });
+  box.innerHTML = html;
+}
+
+/* ---- 14.4 战斗界面渲染 ---- */
+function renderBattle() {
+  var s = store.get();
+  $('#bChap').textContent = CHAPTERS[s.chapter - 1].name + ' · 第 ' + s.level + ' 关';
+  $('#bTurn').textContent = '第 ' + s.turn + ' 回合';
+  renderResources();
+  renderArmy();
+  renderEnemies();
+  renderHand();
+  renderActions();
+  renderPhaseTrack();
+}
+
+function renderResources() {
+  var s = store.get();
+  $('#bGold').innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><circle cx="12" cy="12" r="9" fill="#FFC94D" stroke="#E8A020" stroke-width="2"/><path d="M12 6.5 L13.2 9.6 L16.4 9.8 L13.9 11.9 L14.7 15 L12 13.2 L9.3 15 L10.1 11.9 L7.6 9.8 L10.8 9.6 Z" fill="#F0A020"/></svg> 金币 ' + s.gold;
+  $('#bFood').innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><path d="M12 3 C7 7 4 11 4 14 a8 8 0 0 0 16 0 C20 11 17 7 12 3 Z" fill="#8ED081" stroke="#4FA857" stroke-width="2"/><path d="M12 3 C12 8 12 11 12 14" stroke="#4FA857" stroke-width="2"/></svg> 粮食 ' + s.food;
+  var landEl = $('#bLand');
+  if (landEl) { landEl.style.display = 'inline-flex'; landEl.textContent = '🏞️ 土地 ' + s.land; }
+  var pct = Math.max(0, Math.round(s.castle / s.castleMax * 100));
+  $('#bCastleBar').style.width = pct + '%';
+  $('#bCastleText').textContent = s.castle + '/' + s.castleMax;
+  refreshTopResources();
+}
+
+/* ---- 14.5 驻军渲染（三排：前线/中排/后勤） ---- */
+/* 土地容量分布：front / mid / back 和恰为 land */
+function rankCaps(land) {
+  var base = Math.floor(land / 3);
+  var rem = land % 3;
+  return {
+    front: base + (rem >= 1 ? 1 : 0),
+    mid: base + (rem >= 2 ? 1 : 0),
+    back: base
+  };
+}
+
+var RANK_LABEL = { front: '前线', mid: '中排', back: '后勤' };
+
+function renderArmy() {
+  var s = store.get();
+  var ranks = { front: $('#rankFront'), mid: $('#rankMid'), back: $('#rankBack') };
+  var rankOrder = ['front', 'mid', 'back'];
+  Object.keys(ranks).forEach(function (rank) { ranks[rank].innerHTML = ''; });
+  var caps = rankCaps(s.land);
+
+  s.army.forEach(function (unit) {
+    var slot = document.createElement('div');
+    slot.className = 'slot' + (s.selectedUnitId && s.selectedUnitId === unit.id ? ' selected' : '');
+    if (unit.dead) slot.classList.add('lit');
+    var def = ARMY_DEFS[unit.type];
+    slot.setAttribute('role', 'button');
+    slot.setAttribute('tabindex', '0');
+    slot.setAttribute('aria-label', def.name + '，' + starsText(unit.star) + '，攻击 ' + unit.atk + '，血量 ' + unit.hp);
+    slot.innerHTML =
+      '<div class="s-avatar">' + armySvg(unit.type) + '</div>' +
+      '<div class="s-name">' + def.name + '</div>' +
+      '<div class="s-stars">' + starsText(unit.star) + '</div>' +
+      '<div class="s-stat"><i class="va">⚔ ' + unit.atk + '</i><i class="vh">❤ ' + unit.hp + '/' + unit.maxHp + '</i></div>' +
+      (unit.stack > 0 ? '<div class="s-buff">+' + unit.stack + '</div>' : '') +
+      (unit.dead ? '<div class="s-dead">💤</div>' : '');
+    slot.addEventListener('click', function () { selectUnit(unit); });
+    slot.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectUnit(unit); }
+    });
+    ranks[unit.rank].appendChild(slot);
+  });
+
+  // 空土地：按容量补齐，可点击部署手牌
+  rankOrder.forEach(function (rank) {
+    var occupied = s.army.filter(function (u) { return u.rank === rank; }).length;
+    var empty = Math.max(0, caps[rank] - occupied);
+    for (var i = 0; i < empty; i++) {
+      var emptySlot = document.createElement('div');
+      emptySlot.className = 'slot';
+      emptySlot.style.opacity = '0.5';
+      emptySlot.setAttribute('role', 'button');
+      emptySlot.setAttribute('tabindex', '0');
+      emptySlot.setAttribute('aria-label', '在' + RANK_LABEL[rank] + '空土地部署军队');
+      emptySlot.innerHTML = '<div style="font-size:20px">🌱</div><div class="s-name">空土地</div>';
+      (function (r, el) {
+        el.addEventListener('click', function () { placeOnEmpty(r); });
+        el.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); placeOnEmpty(r); }
+        });
+      })(rank, emptySlot);
+      ranks[rank].appendChild(emptySlot);
+    }
+  });
+}
+
+/* ---- 14.6 敌人渲染 ---- */
+function renderEnemies() {
+  var box = $('#enemyList');
+  if (!box) return;
+  var s = store.get();
+  if (!s.enemies.length) {
+    box.innerHTML = '<div class="panel-tip" style="margin:0;">🌿 草原暂时平静…（进入战斗后敌人来袭）</div>';
+    return;
+  }
+  var html = '';
+  s.enemies.forEach(function (e, idx) {
+    var pct = Math.max(0, Math.round(e.hp / e.maxHp * 100));
+    html += '<div class="enemy-card' + (e.delay > 0 ? ' e-delayed' : '') + '" data-eidx="' + idx + '">' +
+      '<div class="e-avatar">' + enemySvg(e.defKey) + '</div>' +
+      '<div class="e-info">' +
+      '<div class="e-name">' + e.name + (e.delay > 0 ? ' 😵' : '') + '</div>' +
+      '<div class="e-desc">' + (ENEMY_DEFS[e.defKey] ? ENEMY_DEFS[e.defKey].desc : '') + '</div>' +
+      '<div class="e-hpbar"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="e-lv">⚔ ' + e.atk + ' · ❤ ' + e.hp + '/' + e.maxHp + '</div></div>' +
+      '</div>';
+  });
+  box.innerHTML = html;
+}
+
+/* ---- 14.7 手牌渲染 ---- */
+function renderHand() {
+  var box = $('#handArea');
+  if (!box) return;
+  var s = store.get();
+  if (!s.hand.length) {
+    box.innerHTML = '<div style="font-size:12px;color:var(--ink-faint);padding:4px 0;">手牌为空 · 在商店购买军队卡后即可部署</div>';
+    return;
+  }
+  var html = '';
+  s.hand.forEach(function (h, idx) {
+    var def = ARMY_DEFS[h.type];
+    html += '<div class="hand-card' + (s.selectedHand === idx ? ' selected' : '') + '" data-hidx="' + idx + '" role="button" tabindex="0" aria-label="' + def.name + ' ' + starsText(h.star) + '，数量 ' + h.count + '">' +
+      '<div class="h-avatar">' + armySvg(h.type) + '</div>' +
+      '<span>' + def.name + ' ' + starsText(h.star) + '</span>' +
+      '<span class="h-count">' + h.count + '</span>' +
+      '</div>';
+  });
+  box.innerHTML = html;
+  box.querySelectorAll('.hand-card').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var idx = Number(el.getAttribute('data-hidx'));
+      toggleHandSelect(idx);
+    });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleHandSelect(Number(el.getAttribute('data-hidx'))); }
+    });
+  });
+}
+
+/* ---- 14.8 部队 / 手牌选择 ---- */
+function selectUnit(unit) {
+  var s = store.get();
+  if (s.selectedHand !== null) { deployToUnit(unit); return; }
+  // 点击场上部队：仅作为查看（保留选中状态，方便后续扩展查看详情）
+  store.set({ selectedUnitId: s.selectedUnitId === unit.id ? null : unit.id });
+  renderBattle();
+}
+
+function toggleHandSelect(idx) {
+  var s = store.get();
+  store.set({ selectedHand: s.selectedHand === idx ? null : idx, selectedUnitId: null });
+  renderBattle();
+}
+
+/* ---- 14.9 部署 / 叠放 ---- */
+/* 点击场上某格：若选中手牌 → 空位部署或同名同星叠放 */
+function deployToUnit(unit) {
+  var s = store.get();
+  var h = s.hand[s.selectedHand];
+  if (!h) return;
+  if (s.phase !== 'start' && s.phase !== 'operate' && s.phase !== 'shop') { showToast('当前阶段不能操作军队'); return; }
+  var def = ARMY_DEFS[h.type];
+
+  // 同名同星 → 叠放：+1 攻 +1 血（无上限，已确认设计）
+  if (unit.type === h.type && unit.star === h.star && !unit.dead) {
+    unit.atk += 1;
+    unit.hp += 1;
+    unit.maxHp += 1;
+    unit.stack += 1;
+    consumeHand(s.selectedHand);
+    store.set({ selectedHand: null });
+    addLog('🐂 ' + def.name + ' 同名叠放：<b>+1 攻击 +1 血量</b>（当前 +' + unit.stack + '）');
+    playSound('merge');
+    vibrate(30);
+    renderBattle();
+    return;
+  }
+  showToast('只能部署到空土地，或叠放到同名同星部队上');
+}
+
+/* 消费手牌 1 张 */
+function consumeHand(idx) {
+  var s = store.get();
+  var h = s.hand[idx];
+  h.count -= 1;
+  if (h.count <= 0) s.hand.splice(idx, 1);
+  store.set({ hand: s.hand });
+}
+
+/* 从手牌新建一个部队，放到指定排的空位（数值全部来自已确认设计） */
+function deployNew(unitType, star, rank) {
+  var s = store.get();
+  var def = ARMY_DEFS[unitType];
+  var st = def.stars[star - 1];
+  var id = 'u' + Date.now() + Math.floor(Math.random() * 999);
+  var newUnit = {
+    id: id, type: unitType, star: star, stack: 0,
+    atk: st.atk, hp: st.hp, maxHp: st.hp,
+    rank: rank, dead: false,
+    dmgTaken: 0,           // 累计受伤（犟脾气天赋用）
+    angryCount: 0          // 已触发犟脾气次数
+  };
+  s.army.push(newUnit);
+  store.set({ army: s.army });
+  return newUnit;
+}
+
+/* 点击空土地部署手牌 */
+function placeOnEmpty(rank) {
+  var s = store.get();
+  if (s.selectedHand === null) { showToast('先在下方手牌选择要部署的军队'); return; }
+  var p = s.phase;
+  if (p !== 'start' && p !== 'operate' && p !== 'shop') { showToast('当前阶段不能部署部队'); return; }
+  var h = s.hand[s.selectedHand];
+  var def = ARMY_DEFS[h.type];
+  var caps = rankCaps(s.land);
+  if (s.army.filter(function (u) { return u.rank === rank; }).length >= caps[rank]) {
+    showToast('该排已满，请部署到其它排');
+    return;
+  }
+  var unit = deployNew(h.type, h.star, rank);
+  consumeHand(s.selectedHand);
+  if (s.hand.length === 0) store.set({ selectedHand: null });
+  addLog(def.name + '（' + starsText(h.star) + '）部署到 ' + RANK_LABEL[rank] + '！');
+  playSound('deploy');
+  vibrate(20);
+  renderBattle();
+}
+
+/* ---- 14.10 三合一升星（已确认设计：1→2→3 星，每星技能升级） ---- */
+function findMergeable() {
+  var s = store.get();
+  var groups = {};
+  s.army.forEach(function (u) {
+    if (u.dead) return;
+    var k = u.type + '_' + u.star;
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(u);
+  });
+  var found = null;
+  Object.keys(groups).forEach(function (k) {
+    if (groups[k].length >= 3 && !found) found = groups[k];
+  });
+  return found;
+}
+
+function doMerge() {
+  var s = store.get();
+  var group = findMergeable();
+  if (!group) { showToast('场上需要 3 个同类型同星级的部队才能升星'); return; }
+  var a = group[0], b = group[1], c = group[2];
+  var newStar = Math.min(3, a.star + 1);
+  var def = ARMY_DEFS[a.type];
+  var st = def.stars[newStar - 1];
+  var rank = a.rank;
+  var deadIds = {};
+  [a, b, c].forEach(function (u) { deadIds[u.id] = true; });
+  s.army = s.army.filter(function (u) { return !deadIds[u.id]; });
+  // 叠放加成合计并入新部队（体现无上限叠放价值）
+  var stackBonus = a.stack + b.stack + c.stack;
+  var newUnit = {
+    id: 'u' + Date.now() + Math.floor(Math.random() * 999),
+    type: a.type, star: newStar, stack: stackBonus,
+    atk: st.atk + stackBonus, hp: st.hp + stackBonus, maxHp: st.hp + stackBonus,
+    rank: rank, dead: false, dmgTaken: 0, angryCount: 0
+  };
+  s.army.push(newUnit);
+  store.set({ army: s.army, selectedUnitId: null, selectedHand: null });
+  addLog('✨ <b>三合一升星</b>：3 个 ' + def.name + ' ' + a.star + ' 星 → <b>' + newStar + ' 星</b>（攻 ' + st.atk + ' / 血 ' + st.hp + '）');
+  if (stackBonus > 0) addLog('➕ 叠放加成 ' + stackBonus + ' 并入新部队（攻/血 +' + stackBonus + '）');
+  playSound('merge');
+  vibrate(40);
+  renderBattle();
+}
+
+/* ---- 14.11 阶段推进与行动按钮 ---- */
+function setPhase(p) {
+  store.set({ phase: p });
+  renderPhaseTrack();
+  renderActions();
+}
+
+function renderActions() {
+  var box = $('#bActions');
+  if (!box) return;
+  var s = store.get();
+  var phase = s.phase;
+  var html = '';
+
+  if (phase === 'start' || phase === 'operate') {
+    var mergeable = findMergeable();
+    html += '<button class="btn-action ghost" data-act="merge"' + (mergeable ? '' : ' disabled') + '>✨ 三合一升星</button>';
+    html += '<button class="btn-action" data-act="endoperate">完成操作 ➔</button>';
+    html += '<span class="b-hint">② 操作：点选手牌 → 点击空土地部署 · 点击同名部队叠放</span>';
+  } else if (phase === 'shop') {
+    html += '<button class="btn-action ghost" data-act="refresh">🔄 刷新卡包' + (s.shopRefreshed > 0 ? '（' + PRICE.refresh + ' 金币）' : '（免费）') + '</button>';
+    html += '<button class="btn-action" data-act="endshop">开始进攻 ➔</button>';
+    html += '<span class="b-hint">③ 商店：购买军队卡或补给，点击卡片即可购买</span>';
+  } else if (phase === 'fight') {
+    html += '<button class="btn-action" data-act="fight">⚔️ 发起进攻</button>';
+    html += '<span class="b-hint">④ 我方先攻，随后敌人推进（先打前线）</span>';
+  } else if (phase === 'settle') {
+    html += '<button class="btn-action" data-act="nextturn">⑤ 结算 → 下一回合</button>';
+    html += '<span class="b-hint">本回合胜利，领取奖励并继续</span>';
+  }
+  box.innerHTML = html;
+  box.querySelectorAll('[data-act]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      handleAction(btn.getAttribute('data-act'));
+    });
+  });
+}
+
+function handleAction(act) {
+  if (act === 'merge') { doMerge(); return; }
+  if (act === 'endoperate') { startShopPhase(); return; }
+  if (act === 'refresh') { refreshShopOffers(); return; }
+  if (act === 'endshop') { startFightPhase(); return; }
+  if (act === 'fight') { runFight(); return; }
+  if (act === 'nextturn') { nextTurn(); return; }
+}
+
+/* =====================================================================
+   15. 回合流程
+   ===================================================================== */
+
+/* ---- 15.1 ① → ②：操作阶段限制 ---- */
+/* 进入关卡即①回合开始（runStartPassive 完成被动触发），随后进入②操作 */
+function endStartPhase() {
+  setPhase('operate');
+}
+
+/* ---- 15.2 ② → ③：商店窗口 ---- */
+function startShopPhase() {
+  var s = store.get();
+  s.shopRefreshed = 0;
+  store.set({ shopRefreshed: 0 });
+  renderShopWindow();
+  setPhase('shop');
+}
+
+/* 生成商店 3 个军队卡包（三选一）+ 补给 */
+function renderShopWindow() {
+  var box = $('#shopArea');
+  if (!box) return;
+  var s = store.get();
+  var offs = buildOffers(3);
+  store.set({ offers: offs });
+  var html = '<div class="shop-window"><h3>🏪 商店窗口 <span class="badge-soon">③ 阶段</span></h3><div class="shop-offers">';
+  offs.forEach(function (o, idx) {
+    var def = ARMY_DEFS[o.type];
+    html += '<div class="offer-card" data-offer="' + idx + '" role="button" tabindex="0" aria-label="购买 ' + def.name + ' ' + starsText(o.star) + '，' + o.cost + ' 金币">' +
+      '<div class="o-avatar">' + armySvg(o.type) + '</div>' +
+      '<div class="o-name">' + def.name + ' ' + starsText(o.star) + '</div>' +
+      '<div class="o-cost">🪙 ' + o.cost + ' 金币</div>' +
+      '<div class="o-desc">' + def.desc + '</div>' +
+      '</div>';
+  });
+  html += '<div class="offer-card" data-offer="food" role="button" tabindex="0" aria-label="购买粮食补给">' +
+    '<div style="font-size:34px;line-height:1">🌾</div>' +
+    '<div class="o-name">粮食补给</div>' +
+    '<div class="o-cost">🪙 ' + PRICE.food + ' 金币 = 8 粮食</div>' +
+    '<div class="o-desc">补充军队维持费</div>' +
+    '</div>';
+  html += '</div></div>';
+  box.innerHTML = html;
+  box.querySelectorAll('[data-offer]').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var idx = el.getAttribute('data-offer');
+      if (idx === 'food') { buyShopFood(); return; }
+      buyOffer(Number(idx));
+    });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        var idx = el.getAttribute('data-offer');
+        if (idx === 'food') { buyShopFood(); return; }
+        buyOffer(Number(idx));
+      }
+    });
+  });
+}
+
+function buyShopFood() {
+  var s = store.get();
+  if (s.gold < PRICE.food) { showToast('金币不足'); return; }
+  store.set({ gold: s.gold - PRICE.food, food: s.food + 8 });
+  addLog('🌾 购买粮食补给：粮食 +8');
+  playSound('click');
+  renderBattle();
+}
+
+/* 生成 n 个随机军队 offer（基础占位价格） */
+function buildOffers(n) {
+  var keys = Object.keys(ARMY_DEFS);
+  var offs = [];
+  for (var i = 0; i < n; i++) {
+    var type = keys[Math.floor(Math.random() * keys.length)];
+    var star = 1 + Math.floor(Math.random() * 3);
+    var cost = PRICE.starCost[star];
+    offs.push({ type: type, star: star, cost: cost });
+  }
+  return offs;
+}
+
+function buyOffer(idx) {
+  var s = store.get();
+  var offs = s.offers || [];
+  var o = offs[idx];
+  if (!o) return;
+  if (s.gold < o.cost) { showToast('金币不足，需要 ' + o.cost + ' 金币'); return; }
+  store.set({ gold: s.gold - o.cost });
+  addToHand(o.type, o.star);
+  showToast('获得 ' + ARMY_DEFS[o.type].name + ' ' + starsText(o.star));
+  addLog('🛒 购买：' + ARMY_DEFS[o.type].name + ' ' + starsText(o.star));
+  offs.splice(idx, 1);
+  store.set({ offers: offs });
+  playSound('click');
+  renderShopWindow();
+  renderBattle();
+}
+
+function addToHand(type, star) {
+  var s = store.get();
+  var h = s.hand.find(function (x) { return x.type === type && x.star === star; });
+  if (h) h.count += 1;
+  else s.hand.push({ type: type, star: star, count: 1 });
+  store.set({ hand: s.hand });
+}
+
+function refreshShopOffers() {
+  var s = store.get();
+  var cost = s.shopRefreshed > 0 ? PRICE.refresh : 0;
+  if (s.gold < cost) { showToast('金币不足，需要 ' + cost + ' 金币'); return; }
+  store.set({ gold: s.gold - cost, shopRefreshed: s.shopRefreshed + 1 });
+  var offs = buildOffers(3);
+  store.set({ offers: offs });
+  renderShopWindow();
+  renderBattle();
+  showToast(cost > 0 ? '已刷新卡包（-' + cost + ' 金币）' : '已免费刷新卡包');
+  playSound('click');
+}
+
+/* ---- 15.3 ③ → ④：敌人推进攻击（战斗） ---- */
+function startFightPhase() {
+  spawnWave();
+  setPhase('fight');
+  renderBattle();
+  addLog('🐾 敌方波次出现！点击「发起进攻」迎战');
+  playSound('attack');
+}
+
+/* 生成一波敌人：规模随关卡 / 波次成长（基础占位数值） */
+function spawnWave() {
+  var s = store.get();
+  var lv = s.level;
+  var wave = s.wave;
+  var count = 1 + Math.floor((lv + wave) / 3);
+  if (lv === 8 && wave === 2) count = 3; // Boss 关第二波：狼王 + 爪牙
+  var pool = ['wolf', 'wolf', 'hyena', 'vulture', 'boar'];
+  var chosen = [];
+  if (lv === 8 && wave >= 2) chosen.push('bossWolf'); // Boss 在第 8 关第 2 波压轴登场
+  for (var i = 0; i < count; i++) {
+    chosen.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+  var hpMul = 1 + (lv - 1) * 0.12 + (wave - 1) * 0.08;
+  var atkMul = 1 + (lv - 1) * 0.10 + (wave - 1) * 0.06;
+  // 精英关敌人更强（基础占位）
+  var lvType = LEVEL_TYPES[lv - 1] || 'normal';
+  if (lvType === 'elite') { hpMul *= 1.15; atkMul *= 1.1; }
+  var enemies = chosen.map(function (key, idx) {
+    var def = ENEMY_DEFS[key];
+    return {
+      id: 'e' + Date.now() + '_' + idx,
+      defKey: key,
+      name: def.name,
+      atk: Math.round(def.atk * atkMul),
+      hp: Math.round(def.hp * hpMul),
+      maxHp: Math.round(def.hp * hpMul),
+      delay: 0
+    };
+  });
+  store.set({ enemies: enemies });
+}
+
+/* 执行战斗：① 我方单位按排位攻击 → ② 敌人推进攻击（先前排再中排后勤） */
+function runFight() {
+  var s = store.get();
+  if (!s.enemies.length) { conquerWave(); return; }
+  addLog('⚔️ <b>我方军团出击！</b>');
+  playSound('attack');
+
+  /* ① 我方全体按防御顺序攻击（前线先出手） */
+  var order = ['front', 'mid', 'back'];
+  var myUnits = [];
+  order.forEach(function (rank) {
+    s.army.filter(function (u) { return !u.dead && u.rank === rank; }).forEach(function (u) { myUnits.push(u); });
+  });
+  myUnits.forEach(function (unit) {
+    if (!s.enemies.some(function (e) { return e.hp > 0; })) return;
+    var def = ARMY_DEFS[unit.type];
+    var st = def.stars[unit.star - 1];
+    // 铁牛：触发「牛角冲撞」（3星为全体）
+    if (unit.type === 'bull' && st.trigger) {
+      if (st.trigger.all) {
+        s.enemies.forEach(function (e) {
+          if (e.hp > 0) { e.hp -= st.trigger.dmg; e.delay = Math.max(e.delay, 1); }
+        });
+        addLog('🐂 ' + def.name + ' 触发<b>牛角冲撞</b>：全体 ' + st.trigger.dmg + ' 伤害并延后');
+      } else {
+        var target0 = s.enemies.find(function (e) { return e.hp > 0; });
+        if (target0) { target0.hp -= st.trigger.dmg; target0.delay = Math.max(target0.delay, 1); }
+      }
+    }
+    // 白羊：攻击时同时治疗（触发「温暖咩叫」全体治疗）
+    if (unit.type === 'sheep' && st.trigger) {
+      s.army.forEach(function (x) {
+        if (!x.dead) x.hp = Math.min(x.maxHp, x.hp + st.trigger.value);
+      });
+      addLog('🎵 ' + def.name + ' 触发<b>温暖咩叫</b>：全体治疗 ' + st.trigger.value + ' 点');
+    }
+    // 普通攻击：攻击第一个存活敌人
+    var t = s.enemies.find(function (e) { return e.hp > 0; });
+    if (t) {
+      t.hp -= unit.atk;
+      if (t.hp < 0) t.hp = 0;
+      addLog('🗡 ' + def.name + ' 攻击 ' + t.name + '（- ' + unit.atk + '）');
+    }
+  });
+
+  /* ② 敌人推进攻击：先前排 → 中排 → 后勤（存活敌人逐个攻击） */
+  s.enemies.forEach(function (e) {
+    if (e.hp <= 0) return;
+    if (e.delay > 0) { e.delay -= 1; addLog('😵 ' + e.name + ' 被延后，本回合无法行动'); return; }
+    var frontAlive = s.army.filter(function (u) { return !u.dead && u.rank === 'front'; });
+    var midAlive = s.army.filter(function (u) { return !u.dead && u.rank === 'mid'; });
+    var backAlive = s.army.filter(function (u) { return !u.dead && u.rank === 'back'; });
+    var targetUnit = null;
+    var targetRank = '';
+    if (frontAlive.length) { targetUnit = frontAlive[0]; targetRank = '前线'; }
+    else if (midAlive.length) { targetUnit = midAlive[0]; targetRank = '中排'; }
+    else if (backAlive.length) { targetUnit = backAlive[0]; targetRank = '后勤'; }
+
+    if (targetUnit) {
+      var def = ARMY_DEFS[targetUnit.type];
+      var st = def.stars[targetUnit.star - 1];
+      // 铜皮减伤（铁牛被动）
+      var dmg = Math.max(0, e.atk - (targetUnit.type === 'bull' ? st.passive.value : 0));
+      targetUnit.hp -= dmg;
+      // 犟脾气天赋：累计受 5 伤 +1 攻（最多 3 次）
+      if (targetUnit.type === 'bull') {
+        targetUnit.dmgTaken += dmg;
+        while (targetUnit.dmgTaken >= st.talent.threshold && targetUnit.angryCount < st.talent.max) {
+          targetUnit.dmgTaken -= st.talent.threshold;
+          targetUnit.angryCount += 1;
+          targetUnit.atk += st.talent.bonus;
+          addLog('🔥 ' + def.name + ' 触发<b>犟脾气</b>：攻击 +1（累计 +' + targetUnit.angryCount + '）');
+        }
+      }
+      if (targetUnit.hp <= 0) {
+        targetUnit.hp = 0;
+        targetUnit.dead = true;
+        addLog('💔 ' + def.name + ' 阵亡');
+      } else {
+        addLog('🐾 ' + e.name + ' 攻击' + targetRank + ' ' + def.name + '（' + targetUnit.hp + '/' + targetUnit.maxHp + '）');
+      }
+    } else {
+      // 无部队可挡 → 直接攻击王都
+      s.castle -= e.atk;
+      addLog('🏰 敌军突破防线！王都损失 ' + e.atk + ' 血量');
+      if (s.castle <= 0) s.castle = 0;
+    }
+  });
+
+  // 清理阵亡敌方
+  s.enemies = s.enemies.filter(function (e) { return e.hp > 0; });
+  store.set({ army: s.army, enemies: s.enemies, castle: s.castle, selectedUnitId: null, selectedHand: null });
+
+  // 胜负判定
+  if (s.castle <= 0) { defeat(); return; }
+  if (!s.enemies.length) { conquerWave(); return; }
+  if (s.army.every(function (u) { return u.dead; }) && s.enemies.length) { defeat(); return; }
+  renderBattle();
+}
+
+/* 一波敌人被清空：若还有下一波则下一波，否则本关胜利 */
+function conquerWave() {
+  var s = store.get();
+  var totalWaves = s.level === 8 ? 2 : (s.level >= 5 ? 2 : 1);
+  if (s.wave < totalWaves) {
+    store.set({ wave: s.wave + 1 });
+    addLog('🎉 击退一波敌人！下一波来袭…');
+    spawnWave();
+    setPhase('fight');
+    renderBattle();
+    return;
+  }
+  winLevel();
+}
+
+/* ---- 15.4 ⑤ 回合结算 / 胜利 / 失败 ---- */
+function winLevel() {
+  var s = store.get();
+  var lvType = LEVEL_TYPES[s.level - 1] || 'normal';
+  var goldReward = 4 + s.level * 2;
+  var foodReward = 3 + s.level;
+  store.set({ gold: s.gold + goldReward, food: s.food + foodReward });
+  addLog('💰 关卡奖励：金币 +' + goldReward + ' · 粮食 +' + foodReward);
+  // 普通 / 事件关送卡包（已确认设计：普通关送卡包）
+  if (lvType === 'normal' || lvType === 'event') {
+    addToHand('bull', 1);
+    addToHand('sheep', 1);
+    addLog('🎁 普通关奖励卡包：铁牛盾卫 +1 · 白羊医官 +1');
+  }
+  store.set({ maxLevel: Math.max(s.maxLevel, s.level) });
+  if (s.level >= 8) {
+    store.set({ chapterBeaten: Math.max(s.chapterBeaten, 1), maxLevel: 8 });
+  }
+  refreshTopResources();
+  playSound('win');
+
+  // 通关第 8 关 → 第 1 章完成
+  if (s.level >= 8) {
+    showResult('victory', '第 1 章通关！', '草原兽潮已被你英勇的动物军团击退！<br>第 2 章 · 沙漠劫掠 即将开放（占位）', '回到主菜单');
+    return;
+  }
+  showResult('levelwin', '第 ' + s.level + ' 关胜利！', '下一关将更难，但也更精彩。<br>马上进入第 ' + (s.level + 1) + ' 关。', '继续下一关');
+}
+
+function defeat() {
+  playSound('attack');
+  showResult('defeat', '王都失守…', '动物军团虽败犹荣。休息一下，重新集结再战！', '回到主菜单');
+}
+
+function showResult(kind, title, desc, btnText) {
+  var panel = $('#resultCard');
+  var icon = kind === 'victory' ? '🏆' : kind === 'defeat' ? '💔' : '🎉';
+  var s = store.get();
+  panel.innerHTML =
+    '<h2>' + icon + ' ' + title + '</h2>' +
+    '<div class="r-stats">' +
+      '<span class="stat-pill atk">⚔ 攻击部队：' + s.army.filter(function (u) { return !u.dead; }).length + '</span>' +
+      '<span class="stat-pill hp">🏞️ 土地：' + s.land + '</span>' +
+      '<span class="stat-pill">🪙 ' + s.gold + '</span>' +
+    '</div>' +
+    '<div class="r-desc">' + desc + '</div>' +
+    '<button class="btn-action" id="resultBtn">' + btnText + '</button>';
+  $('#resultPanel').classList.remove('hidden');
+  $('#bActions').innerHTML = '';
+  var btn = $('#resultBtn');
+  btn.addEventListener('click', function () {
+    $('#resultPanel').classList.add('hidden');
+    if (kind === 'defeat') { exitBattle(false); return; }
+    if (kind === 'victory') { exitBattle(true); return; }
+    // 继续下一关
+    var ns = store.get();
+    beginLevel(ns.level + 1, false);
+  });
+}
+
+/* ---- 15.5 下一回合 ---- */
+function nextTurn() {
+  var s = store.get();
+  store.set({ turn: s.turn + 1, phase: 'start' });
+  // ① 回合开始：驻军被动触发（白羊治愈 / 羊毛丰收 / 维持费）
+  runStartPassive();
+  renderBattle();
+}
+
+/* ① 回合开始被动：白羊（羊毛治愈 / 温暖咩叫 / 羊毛丰收）+ 粮食维持费 */
+function runStartPassive() {
+  var s = store.get();
+  if (store.get('phase') !== 'start') setPhase('start');
+  // 白羊：被动治疗 + 天赋金币 + 触发全体治疗
+  s.army.forEach(function (u) {
+    if (u.dead) return;
+    var def = ARMY_DEFS[u.type];
+    var st = def.stars[u.star - 1];
+    if (u.type === 'sheep') {
+      store.set({ gold: store.get('gold') + st.talent.value });
+      addLog('💛 白羊医官触发<b>羊毛丰收</b>：金币 +' + st.talent.value);
+      var living = s.army.filter(function (x) { return !x.dead && x.hp < x.maxHp; });
+      if (living.length) {
+        var lowest = living.reduce(function (acc, x) { return acc.hp < x.hp ? acc : x; });
+        lowest.hp = Math.min(lowest.maxHp, lowest.hp + st.passive.value);
+        addLog('🩹 白羊医官<b>羊毛治愈</b>：治疗 ' + ARMY_DEFS[lowest.type].name + ' ' + st.passive.value + ' 点');
+      }
+      s.army.forEach(function (x) {
+        if (!x.dead) x.hp = Math.min(x.maxHp, x.hp + st.trigger.value);
+      });
+      addLog('🎵 白羊医官<b>温暖咩叫</b>：全体治疗 ' + st.trigger.value + ' 点');
+    }
+  });
+  // 粮食维持费：每支部队每回合 1 粮食
+  var cost = s.army.filter(function (u) { return !u.dead; }).length;
+  if (cost > 0) {
+    store.set({ food: s.food - cost });
+    addLog('🌾 军队维持费：-' + cost + ' 粮食');
+    if (store.get('food') < 0) {
+      var lack = -store.get('food');
+      store.set({ food: 0, castle: s.castle - lack });
+      addLog('⚠️ 粮食不足！王都损失 ' + lack + ' 血量');
+      if (store.get('castle') <= 0) {
+        s.castle = 0;
+        store.set({ castle: 0 });
+        defeat();
+        return;
+      }
+      if (store.get('castle') < 0) store.set({ castle: 0 });
+    }
+  }
+  store.set({ army: s.army });
+  renderResources();
+  // 进入②操作阶段
+  setPhase('operate');
+}
+
+/* ---- 15.6 退出战斗 ---- */
+function clearBattleLog() {
+  var box = $('#bLog');
+  if (box) box.innerHTML = '';
+}
+function exitBattle(completed) {
+  $('#battleView').classList.add('hidden');
+  $('#resultPanel').classList.add('hidden');
+  $('#panel-pause').classList.add('hidden');
+  $('#eventArea').innerHTML = '';
+  $('#shopArea').innerHTML = '';
+  $('#app').classList.remove('hidden');
+  store.set({ view: 'main', selectedHand: null, selectedUnitId: null, offers: [] });
+  renderLevels();
+  refreshTopResources();
+  if (completed) showToast('🎉 第 1 章通关达成！');
+  else showToast('已返回主菜单');
+}
+$('#bExit').addEventListener('click', function () { exitBattle(false); });
+
+/* =====================================================================
+   16. 初始卡包五选二 / 商店卡包三选一（已确认设计）
+   ===================================================================== */
+/* mode: 'pickTwo' 五选二（开局）/ 'pickOne' 三选一（商店卡包） */
+function openPackPick(count, mode) {
+  var candidates = [];
+  for (var i = 0; i < count; i++) {
+    var type = i % 2 === 0 ? 'bull' : 'sheep';
+    var star = Math.random() < 0.2 ? 2 : 1;
+    candidates.push({ type: type, star: star });
+  }
+  candidates = shuffle(candidates);
+  var maxPick = mode === 'pickTwo' ? 2 : 1;
+  var picked = [];
+
+  var panel = document.createElement('div');
+  panel.className = 'overlay';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-label', mode === 'pickTwo' ? '初始卡包五选二' : '商店卡包三选一');
+  var html = '<div class="panel"><div class="panel-head"><h2>' +
+    (mode === 'pickTwo' ? '🎁 初始卡包 · 五选二' : '🎁 商店卡包 · 三选一') + '</h2></div>' +
+    '<div class="panel-note">' + (mode === 'pickTwo'
+      ? '<b>开局选择 2 名军队</b> · 之后可在商店招募更多；同类型同星级三合一可升星，同名叠放 +1/+1'
+      : '选择 1 名军队加入手牌，可部署到土地或继续叠放') + '</div>' +
+    '<div class="cards">';
+  candidates.forEach(function (c, idx) {
+    var def = ARMY_DEFS[c.type];
+    html += '<div class="pick-card" data-pick="' + idx + '" role="button" tabindex="0" aria-label="' + def.name + ' ' + starsText(c.star) + '">' +
+      '<div class="p-avatar">' + armySvg(c.type) + '</div>' +
+      '<div class="p-name">' + def.name + ' ' + starsText(c.star) + '</div>' +
+      '<div class="panel-tip" style="margin-top:6px;">攻 ' + def.stars[c.star - 1].atk + ' · 血 ' + def.stars[c.star - 1].hp + '</div>' +
+      '<div class="p-desc">' + def.desc + '</div>' +
+      '</div>';
+  });
+  html += '</div><div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;">' +
+    '<button class="btn-action ghost" id="pkCancel">稍后选择</button>' +
+    '<button class="btn-action" id="pkConfirm" disabled>' + (mode === 'pickTwo' ? '确认选择 (0/2)' : '确认选择 (0/1)') + '</button>' +
+    '</div></div>';
+  panel.innerHTML = html;
+  document.body.appendChild(panel);
+
+  var confirm = panel.querySelector('#pkConfirm');
+  var cancel = panel.querySelector('#pkCancel');
+
+  panel.querySelectorAll('.pick-card').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var idx = Number(el.getAttribute('data-pick'));
+      var pos = picked.indexOf(idx);
+      if (pos >= 0) { picked.splice(pos, 1); el.classList.remove('picked'); }
+      else {
+        if (picked.length >= maxPick) { showToast('最多选择 ' + maxPick + ' 名'); return; }
+        picked.push(idx);
+        el.classList.add('picked');
+      }
+      confirm.disabled = picked.length === 0;
+      confirm.textContent = '确认选择 (' + picked.length + '/' + maxPick + ')';
+      playSound('click');
+    });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+    });
+  });
+
+  function finish() {
+    picked.forEach(function (idx) {
+      var c = candidates[idx];
+      addToHand(c.type, c.star);
+    });
+    document.body.removeChild(panel);
+    if (mode === 'pickTwo') {
+      addLog('🎁 初始卡包选择完成：获得 ' + picked.length + ' 名军队');
+      renderBattle();
+      runStartPassive();
+    } else {
+      renderBattle();
+      startShopPhase();
+    }
+  }
+
+  confirm.addEventListener('click', finish);
+  cancel.addEventListener('click', function () {
+    document.body.removeChild(panel);
+    if (mode === 'pickTwo') {
+      renderBattle();
+      runStartPassive();
+    } else {
+      // 商店卡包：放弃本次招募，退还已扣金币
+      store.set({ gold: store.get('gold') + PRICE.pack });
+      showToast('已放弃本次招募，金币已退还');
+      refreshTopResources();
+      renderBattle();
+    }
+  });
+}
+
+/* =====================================================================
+   17. 事件关（第 6 关，基础占位实现；不冒充已确认设计）
+   ===================================================================== */
+function openEvent() {
+  var box = $('#eventArea');
+  if (!box) return;
+  store.set({ eventDone: false });
+  var events = [
+    { title: '🪵 篝火聚餐', desc: '动物们围坐篝火，整个军团恢复了元气。', option: '全体治疗所有部队，恢复满血', apply: function () {
+      store.get('army').forEach(function (u) { if (!u.dead) u.hp = u.maxHp; });
+      store.set({ army: store.get('army') });
+      return '🔥 篝火生效：全体部队恢复满血！';
+    } },
+    { title: '🚚 商队路过', desc: '远方的商队为感谢守卫，留下了补给。', option: '获得 8 金币', apply: function () {
+      store.set({ gold: store.get('gold') + 8 });
+      return '💰 获得 8 金币！';
+    } },
+    { title: '🌾 丰收庆典', desc: '农田大丰收，粮仓满满。', option: '获得 12 粮食', apply: function () {
+      store.set({ food: store.get('food') + 12 });
+      return '🌾 获得 12 粮食！';
+    } },
+    { title: '🪶 流浪军加入', desc: '一支流浪动物军队慕名而来。', option: '获得 1 星铁牛 + 1 星白羊各 1 名', apply: function () {
+      addToHand('bull', 1);
+      addToHand('sheep', 1);
+      return '🪶 流浪军加入：铁牛盾卫 +1 · 白羊医官 +1（进入手牌）';
+    } }
+  ];
+  var ev = events[randInt(0, events.length - 1)];
+  box.innerHTML = '<div class="event-banner">' +
+    '<div><b style="font-size:15px;">' + ev.title + '</b> <span class="badge-soon">事件关 · 占位</span>' +
+    '<div style="font-size:12.5px;color:var(--ink-soft);margin-top:4px;">' + ev.desc + '</div></div>' +
+    '<div class="event-choices">' +
+    '<button class="btn-action" id="evTake">✔ ' + ev.option + '</button>' +
+    '<button class="btn-action ghost" id="evSkip">继续前进 · 放弃</button>' +
+    '</div></div>';
+  var take = box.querySelector('#evTake');
+  var skip = box.querySelector('#evSkip');
+  take.addEventListener('click', function () {
+    var msg = ev.apply();
+    addLog('🍂 事件抉择：' + ev.title + ' → ' + msg);
+    store.set({ eventDone: true });
+    box.innerHTML = '';
+    showToast(msg);
+    renderBattle();
+    // 事件后进入正常回合：① 被动 → ② 操作
+    setPhase('start');
+    runStartPassive();
+  });
+  skip.addEventListener('click', function () {
+    addLog('🍂 事件抉择：放弃 ' + ev.title + '，继续前进');
+    store.set({ eventDone: true });
+    box.innerHTML = '';
+    renderBattle();
+    setPhase('start');
+    runStartPassive();
+  });
+}
+
+/* ---- 初始化与入场加载 ---- */
+(function startLoader() {
+  /* 入场提示：呼应「加载所有插件、技能等可用能力」 */
+  var tips = [
+    '正在加载各插件、技能与可用能力',
+    '正在载入军队数据（铁牛盾卫 / 白羊医官）',
+    '正在绘制王都地图与四章战场',
+    '正在唤醒可爱军团 · 准备出发！'
+  ];
+  var bar = $('#loadBar');
+  var tip = $('#loadTip');
+  var step = 0;
+  var timer = setInterval(function () {
+    step += 1;
+    if (bar) bar.style.width = Math.min(step * 25, 100) + '%';
+    if (tip && tips[Math.min(step - 1, tips.length - 1)]) tip.textContent = tips[Math.min(step - 1, tips.length - 1)];
+    if (step >= 4) {
+      clearInterval(timer);
+      setTimeout(function () {
+        var loader = $('#loader');
+        var app = $('#app');
+        if (loader) loader.classList.add('hidden');
+        if (app) app.classList.remove('hidden');
+      }, 350);
+    }
+  }, 420);
+})();
+
+/* 初始化视图与交互 */
+function initApp() {
+  bindMenuEvents();
+  bindSettingEvents();
+  bindPauseEvents();
+  refreshTopResources();
+  renderIndex();
+  renderLevels();
+  renderShop();
+}
+initApp();
 </script>
+
 </body>
 </html>
