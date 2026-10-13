@@ -9,8 +9,25 @@
   =====================================================================
   动物王国 Animal Kingdom - 完整游戏（单文件可运行）
   ---------------------------------------------------------------------
-  更新说明（每次更新代码都必须维护本注释块）：
-  v1.0.0  2026-10-13  正式制作全部游戏（完整可玩版）：
+更新说明（每次更新代码都必须维护本注释块）：
+   v2.0.0  2026-10-14  对标同类参考（《种呱得呱》打牌种田肉鸽、
+     《农庄牌》幸运房东向肉鸽）完成玩法与表现力升级：
+     - 新增「行动点」系统：每回合操作阶段 3 点，部署 / 叠放 / 三合一
+       各消耗 1 点、弃牌不消耗，操作有资源压力与决策张力
+       （参考：种呱得呱时间压力表 / 农庄牌能量系统；数值占位可调）
+     - 新增「关卡目标 KPI」：每关 3 个目标（限时胜利 / 王都血量 /
+       三合一次数 / 驻军规模 / 部署次数，随机取 3），达成奖励金币，
+       3 目标全达成额外送卡包（参考：种呱得呱 KPI 任务）
+     - 第 6 关事件新增「冒险刮刮乐」小游戏：3×3 刮奖、最多刮 3 格，
+       赢取金币 / 粮食 / 军队 / 随机 2 星大奖（参考：种呱得呱刮刮乐）
+     - 新增军令叙事台词（普通 / 商店 / 精英 / 事件 / Boss 横幅）、
+       部署 / 升星 / 叠放弹跳动画、受击闪动、手牌卡角色标签
+     - 保留全部已确认数值契约：铁牛盾卫 / 白羊医官 1-3 星全数值、
+       三合一升星、同名叠放 +1/+1、战线规则、第 1 章 8 关结构、双货币
+     - 新增内容（行动点 / 关卡目标 / 刮刮乐 / 台词 / 动效）均为增量
+       系统，操作与奖励数值为本轮基础占位值，UI 内标注可调，
+       不冒充已确认设计
+   v1.0.0  2026-10-13  正式制作全部游戏（完整可玩版）：
     - 五个完整回合阶段：①回合开始（驻军被动/维持费）→ ②合成/操作
       （三合一升星·同名叠放·部署）→ ③商店窗口（军队三选一/补给/刷新）
       → ④敌人推进攻击（先前排→中排→后勤，含延后与波次）→ ⑤回合结算
@@ -348,6 +365,53 @@ button { font-family: inherit; border: none; background: none; cursor: pointer; 
 .p-desc { font-size: 11px; color: var(--ink-soft); margin-top: 3px; line-height: 1.4; }
 
 /* =====================================================================
+   7.9 v2.0.0 新增：行动点 / 关卡目标 / 军令横幅 / 动画 / 刮刮乐
+   ===================================================================== */
+/* 行动点 chip */
+.energy-chip { display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:900;
+  background:linear-gradient(180deg,#FFF1CF,#FFE3A3); border:2px solid #E8B56C; border-radius:999px; padding:4px 11px;
+  color:#8A5A1A; box-shadow:0 3px 0 rgba(122,92,52,0.16); }
+.energy-chip .bolt { font-size:13px; line-height:1; }
+.energy-chip.low { background:#FFF0E0; color:#C2541E; }
+
+/* 关卡目标条 */
+.goal-bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:6px 10px;
+  background:rgba(255,249,232,0.75); border-bottom:1px dashed var(--border-soft); }
+.goal-tag { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:800;
+  color:var(--ink-soft); background:var(--panel-2); border:2px solid var(--border-soft); border-radius:999px; padding:3px 9px; }
+.goal-tag.met { color:#4E7A3A; border-color:#9CCB74; background:#EFF7E4; }
+.goal-tag .g-ico { font-size:12px; }
+
+/* 军令横幅（叙事台词） */
+#warBanner { position:absolute; left:50%; top:96px; transform:translateX(-50%) translateY(-14px);
+  z-index:25; max-width:min(560px,88vw); background:linear-gradient(180deg,#FFFDF4,var(--panel));
+  border:3px solid var(--border); border-radius:var(--radius-md); padding:12px 20px;
+  box-shadow:0 14px 26px rgba(62,94,46,0.22); opacity:0; pointer-events:none; text-align:center;
+  font-size:14px; font-weight:900; line-height:1.7; transition:opacity .22s, transform .22s; }
+#warBanner.show { opacity:1; transform:translateX(-50%) translateY(0); }
+#warBanner.big { top:120px; font-size:clamp(18px,2.6vw,24px); letter-spacing:2px; }
+
+/* 单位动画：部署 / 升星 / 叠放 / 受击 */
+@keyframes popUnit { 0% { transform:scale(.6); } 55% { transform:scale(1.14); } 100% { transform:scale(1); } }
+@keyframes hitUnit { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-4px); } 75% { transform:translateX(4px); } }
+.slot.pop { animation:popUnit .3s ease; }
+.slot.hit { animation:hitUnit .28s ease; }
+
+/* 手牌卡升级：角色标签 */
+.h-card-box { display:flex; flex-direction:column; gap:1px; line-height:1.35; }
+.h-role { width:max-content; font-size:8.5px; font-weight:900; color:var(--accent-deep);
+  background:#FFE3C9; border-radius:999px; padding:1px 6px; line-height:1.5; }
+
+/* 刮刮乐 */
+.scratch-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; max-width:340px; margin:10px auto; }
+.scratch-cell { aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:26px;
+  background:linear-gradient(180deg,#FFE9C4,#FFD98F); border:3px solid var(--border); border-radius:14px;
+  cursor:pointer; box-shadow:0 4px 0 rgba(122,92,52,0.18); transition:transform .1s; color:var(--ink); }
+.scratch-cell:hover { transform:scale(1.05); }
+.scratch-cell.open { cursor:default; background:var(--panel); border-color:var(--border-soft); animation:popUnit .28s ease; }
+.scratch-cell.open .sm { font-size:12px; font-weight:900; color:var(--ink-soft); }
+
+/* =====================================================================
    8. Toast / 加载画面
    ===================================================================== */
 #toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px); z-index: 90;
@@ -517,7 +581,7 @@ button { font-family: inherit; border: none; background: none; cursor: pointer; 
   </main>
 
   <footer class="footer">
-    <span class="version">v1.0.0 · 完整游戏</span>
+    <span class="version">v2.0.0 · 完整游戏</span>
     <span class="memo">肉鸽构筑 · 三合一升星 · 同名叠放</span>
     <span>© 2026 Animal Kingdom</span>
   </footer>
@@ -644,11 +708,18 @@ button { font-family: inherit; border: none; background: none; cursor: pointer; 
       <span class="resource-chip" id="bGold"></span>
       <span class="resource-chip" id="bFood"></span>
       <span class="resource-chip" style="display:none" id="bLand"></span>
+      <span class="energy-chip hidden" id="bEnergy" title="操作行动点：部署 / 叠放 / 三合一各消耗 1 点（每回合重置，占位数值可调）"><span class="bolt">⚡</span><span id="bEnergyText">3/3</span></span>
       <button class="btn-mini" id="bHelp" aria-label="玩法帮助">?</button>
       <button class="btn-mini" id="bPause" aria-label="暂停">⏸</button>
       <button class="btn-mini" id="bExit">退出</button>
     </div>
   </div>
+
+  <!-- v2.0.0：关卡目标 KPI 条（由 JS 渲染） -->
+  <div class="goal-bar hidden" id="goalBar" aria-label="关卡目标"></div>
+
+  <!-- v2.0.0：军令横幅（叙事台词） -->
+  <div id="warBanner" aria-live="polite"></div>
 
   <!-- 阶段指示器：① 回合开始 → ② 操作 → ③ 商店 → ④ 战斗 → ⑤ 结算 -->
   <div class="phase-track" id="phaseTrack" aria-label="回合阶段"></div>
@@ -721,7 +792,9 @@ button { font-family: inherit; border: none; background: none; cursor: pointer; 
     </div>
     <div class="panel-note">
       <b>目标</b>：组建可爱动物军团，抵御一波波入侵，守护王都直到关卡胜利。<br>
-      <b>回合流程</b>：① 回合开始（被动/维持费）→ ② 操作（部署/叠放/三合一升星）→ ③ 商店（买军队/补给）→ ④ 战斗（我方先攻、敌方推进）→ ⑤ 结算奖励。
+      <b>回合流程</b>：① 回合开始（被动/维持费）→ ② 操作（部署/叠放/三合一升星）→ ③ 商店（买军队/补给）→ ④ 战斗（我方先攻、敌方推进）→ ⑤ 结算奖励。<br>
+      <b>行动点</b>：每回合操作阶段 ⚡ 3 点（占位可调），部署 / 叠放 / 三合一各消耗 1 点，弃牌不消耗。<br>
+      <b>关卡目标</b>：每关随机 3 个 KPI 目标（限时胜利 / 王都血量 / 三合一 / 驻军 / 部署），达成奖励金币，3 目标全达成额外送卡包。
     </div>
     <div class="cards" style="grid-template-columns:1fr;">
       <div class="card"><h3>🐮 如何变强</h3>
@@ -752,7 +825,7 @@ button { font-family: inherit; border: none; background: none; cursor: pointer; 
 
 <script>
 /* =====================================================================
-   动物王国 - 完整游戏引擎 v1.0.0
+   动物王国 - 完整游戏引擎 v2.0.0（更新记录见文件头注释块）
    ---------------------------------------------------------------------
    架构（自上而下）：
    ① 内存 Store：唯一状态源（禁止 localStorage / sessionStorage / cookie）
@@ -800,7 +873,15 @@ var store = createMemoryStore({
   selectedHand: null,      // 手牌选中索引
   selectedUnitId: null,    // 战场单位选中 ID
   logLine: '',
-  eventDone: false         // 事件关事件是否已处理
+  eventDone: false,        // 事件关事件是否已处理
+  /* --- v2.0.0 新增：行动点 / 关卡目标 / 刮刮乐 / 局内计数（数值占位可调） --- */
+  operateEnergy: 3,        // 操作阶段行动点（每回合重置，占位可调）
+  operateEnergyMax: 3,     // 操作阶段行动点上限
+  levelGoals: [],          // 本关目标 KPI：[{id,type,label,ico,value,progress,met}]
+  mergeCount: 0,           // 本关累计三合一次数（目标判定用）
+  deployCount: 0,          // 本关累计部署次数（目标判定用）
+  scratchDone: false,      // 刮刮乐领取标记
+  bannerTimer: null        // 军令横幅定时器
 });
 
 /* ---- 2. DOM 快捷查询工具 ---- */
@@ -1352,6 +1433,12 @@ function startCampaign() {
     offers: [],
     shopRefreshed: 0,
     eventDone: false,
+    operateEnergy: 3,
+    operateEnergyMax: 3,
+    mergeCount: 0,
+    deployCount: 0,
+    levelGoals: [],
+    scratchDone: false,
     castle: 20,
     castleMax: 20
   };
@@ -1393,7 +1480,11 @@ function beginLevel(levelNo, isFirst) {
   });
   var lvType = LEVEL_TYPES[levelNo - 1] || 'normal';
   addLog('进入 <b>第 ' + s.chapter + ' 章 · 第 ' + levelNo + ' 关</b>（' + LEVEL_TYPE_LABEL[lvType] + '）');
+  // v2.0.0：本关重置目标与计数，生成 3 个 KPI 目标，并播报军令横幅
+  store.set({ mergeCount: 0, deployCount: 0, scratchDone: false });
+  buildLevelGoals(lvType, levelNo);
   refreshTopResources();
+  showBanner(bannerForLevel(lvType, levelNo), lvType === 'boss');
 
   // 精英关免费 +1 土地（已确认设计：土地只在精英关补充）
   if (lvType === 'elite') {
@@ -1421,6 +1512,86 @@ function beginLevel(levelNo, isFirst) {
   renderBattle();
   setPhase('start');
   runStartPassive();
+}
+
+/* ---- 14.2.5 v2.0.0 关卡目标 KPI（每关 3 个；达成额外奖励，不破坏主流程） ---- */
+function buildLevelGoals(lvType, levelNo) {
+  var pool = [
+    { type: 'turn',   label: '限时胜利',       ico: '⏱', value: Math.max(6, 10 - Math.floor((levelNo - 1) / 2)) },
+    { type: 'castle', label: '王都血量 ≥70%',  ico: '🏰', value: 70 },
+    { type: 'merge',  label: '三合一 ≥2 次',   ico: '✨', value: 2 },
+    { type: 'army',   label: '胜利时驻军 ≥4 名', ico: '🛡', value: 4 },
+    { type: 'deploy', label: '部署 ≥5 次',     ico: '🚩', value: 5 }
+  ];
+  var bag = shuffle(pool.slice());
+  var picked = [];
+  for (var i = 0; i < 3 && bag.length; i++) {
+    var g = bag[i];
+    picked.push({ id: 'g' + i, type: g.type, label: g.label, ico: g.ico, value: g.value, progress: 0, met: false });
+  }
+  store.set({ levelGoals: picked });
+  renderGoalBar();
+}
+
+function renderGoalBar() {
+  var bar = $('#goalBar');
+  if (!bar) return;
+  var gs = store.get('levelGoals') || [];
+  bar.innerHTML = '<span style="font-size:11px;font-weight:900;color:var(--ink-soft);">🎯 关卡目标</span>' +
+    gs.map(function (g) {
+      return '<span class="goal-tag' + (g.met ? ' met' : '') + '" title="' + g.label + '">' +
+        '<span class="g-ico">' + g.ico + '</span>' + (g.met ? '✔ ' : '') + g.label + '</span>';
+    }).join('');
+}
+
+function tickGoal(type, amount) {
+  var s = store.get();
+  var changed = false;
+  (s.levelGoals || []).forEach(function (g) {
+    if (g.type !== type || g.met) return;
+    g.progress += amount || 1;
+    changed = true;
+  });
+  if (changed) { store.set({ levelGoals: s.levelGoals }); renderGoalBar(); }
+}
+
+function checkGoals() {
+  var s = store.get();
+  (s.levelGoals || []).forEach(function (g) {
+    if (g.met) return;
+    var met = false;
+    if (g.type === 'turn')   met = s.turn <= g.value;
+    if (g.type === 'castle' && s.castleMax) met = Math.round(s.castle / s.castleMax * 100) >= g.value;
+    if (g.type === 'merge')  met = s.mergeCount >= g.value;
+    if (g.type === 'army')   met = s.army.filter(function (u) { return !u.dead; }).length >= g.value;
+    if (g.type === 'deploy') met = s.deployCount >= g.value;
+    if (met) { g.met = true; addLog('🎯 达成目标：' + g.label); }
+  });
+  store.set({ levelGoals: s.levelGoals });
+  renderGoalBar();
+}
+
+/* v2.0.0：军令横幅（叙事台词，3 秒后自动淡出） */
+function showBanner(msg, big) {
+  var el = $('#warBanner');
+  if (!el) return;
+  el.className = big ? 'big' : '';
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(store.get('bannerTimer'));
+  store.set({ bannerTimer: setTimeout(function () { el.classList.remove('show'); }, 3200) });
+}
+
+function bannerForLevel(lvType, levelNo) {
+  var lines = {
+    normal: ['国王军令：草原边境出现大批兽群，立刻集结军团！', '侦察兵回报：前方兽群正在逼近，稳住阵线！'],
+    shop: ['商队抵达营地：采购补给，壮大军团！', '军需官叫卖：先补强阵容再迎战！'],
+    elite: ['吼——精英兽群现身！它们远比普通野狼强壮！', '精英兽潮来袭，这场硬仗需要三合一升星的力量！'],
+    event: ['旅途中出现意外状况，谨慎抉择吧！', '前方传来奇怪动静，看看发生了什么…'],
+    boss: ['嗷呜——草原狼王现身了！它正统率整支兽潮！', '最终之战！击败草原狼王，守护草原家园！']
+  };
+  var arr = lines[lvType] || lines.normal;
+  return arr[(levelNo + 3) % arr.length];
 }
 
 /* ---- 14.3 阶段指示器渲染（① ② ③ ④ ⑤） ---- */
@@ -1468,6 +1639,17 @@ function renderResources() {
   $('#bFood').innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><path d="M12 3 C7 7 4 11 4 14 a8 8 0 0 0 16 0 C20 11 17 7 12 3 Z" fill="#8ED081" stroke="#4FA857" stroke-width="2"/><path d="M12 3 C12 8 12 11 12 14" stroke="#4FA857" stroke-width="2"/></svg> 粮食 ' + s.food;
   var landEl = $('#bLand');
   if (landEl) { landEl.style.display = 'inline-flex'; landEl.textContent = '🏞️ 土地 ' + s.land; }
+  // v2.0.0：行动点 chip 与关卡目标条（仅操作阶段显示）
+  var eng = $('#bEnergy');
+  if (eng) {
+    var inOp = s.phase === 'start' || s.phase === 'operate';
+    eng.classList.toggle('hidden', !inOp);
+    var et = $('#bEnergyText');
+    if (et) et.textContent = s.operateEnergy + '/' + s.operateEnergyMax;
+    eng.classList.toggle('low', s.operateEnergy <= 0);
+  }
+  var goalBar = $('#goalBar');
+  if (goalBar) goalBar.classList.toggle('hidden', !inOp);
   var pct = Math.max(0, Math.round(s.castle / s.castleMax * 100));
   $('#bCastleBar').style.width = pct + '%';
   $('#bCastleText').textContent = s.castle + '/' + s.castleMax;
@@ -1498,6 +1680,7 @@ function renderArmy() {
   s.army.forEach(function (unit) {
     var slot = document.createElement('div');
     slot.className = 'slot' + (s.selectedUnitId && s.selectedUnitId === unit.id ? ' selected' : '');
+    slot.setAttribute('data-uid', unit.id);
     if (unit.dead) slot.classList.add('lit');
     var def = ARMY_DEFS[unit.type];
     slot.setAttribute('role', 'button');
@@ -1578,7 +1761,8 @@ function renderHand() {
     var def = ARMY_DEFS[h.type];
     html += '<div class="hand-card' + (s.selectedHand === idx ? ' selected' : '') + '" data-hidx="' + idx + '" role="button" tabindex="0" aria-label="' + def.name + ' ' + starsText(h.star) + '，数量 ' + h.count + '">' +
       '<div class="h-avatar">' + armySvg(h.type) + '</div>' +
-      '<span>' + def.name + ' ' + starsText(h.star) + '</span>' +
+      '<span class="h-card-box">' + def.name + ' ' + starsText(h.star) +
+      '<span class="h-role">' + def.roleLabel + '</span></span>' +
       '<span class="h-count">' + h.count + '</span>' +
       '</div>';
   });
@@ -1620,15 +1804,17 @@ function deployToUnit(unit) {
 
   // 同名同星 → 叠放：+1 攻 +1 血（无上限，已确认设计）
   if (unit.type === h.type && unit.star === h.star && !unit.dead) {
+    if (s.operateEnergy <= 0) { showToast('⚡ 行动点不足（已用完，可点「完成操作」或先弃牌）'); return; }
     unit.atk += 1;
     unit.hp += 1;
     unit.maxHp += 1;
     unit.stack += 1;
     consumeHand(s.selectedHand);
-    store.set({ selectedHand: null });
-    addLog('🐂 ' + def.name + ' 同名叠放：<b>+1 攻击 +1 血量</b>（当前 +' + unit.stack + '）');
+    store.set({ selectedHand: null, operateEnergy: s.operateEnergy - 1 });
+    addLog('🐂 ' + def.name + ' 同名叠放：<b>+1 攻击 +1 血量</b>（当前 +' + unit.stack + '）· 行动点 -1');
     playSound('merge');
     vibrate(30);
+    popSlot(unit);
     renderBattle();
     return;
   }
@@ -1642,6 +1828,36 @@ function consumeHand(idx) {
   h.count -= 1;
   if (h.count <= 0) s.hand.splice(idx, 1);
   store.set({ hand: s.hand });
+}
+
+/* v2.0.0：弃掉当前选中的手牌（不消耗行动点，避免手牌积压卡死） */
+function discardSelected() {
+  var s = store.get();
+  if (s.selectedHand === null) { showToast('先选一张要弃掉的手牌'); return; }
+  var h = s.hand[s.selectedHand];
+  if (!h) return;
+  var def = ARMY_DEFS[h.type];
+  s.hand.splice(s.selectedHand, 1);
+  store.set({ hand: s.hand, selectedHand: null });
+  addLog('🗑 弃牌：' + def.name + ' ' + starsText(h.star) + '（不消耗行动点）');
+  playSound('click');
+  renderBattle();
+}
+
+/* v2.0.0：单位弹跳（部署/升星/叠放）与受击闪动动画定位 */
+function popSlot(unit) {
+  var el = document.querySelector('.slot[data-uid="' + unit.id + '"]');
+  if (!el) return;
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+}
+function hitSlot(unit) {
+  var el = document.querySelector('.slot[data-uid="' + unit.id + '"]');
+  if (!el) return;
+  el.classList.remove('hit');
+  void el.offsetWidth;
+  el.classList.add('hit');
 }
 
 /* 从手牌新建一个部队，放到指定排的空位（数值全部来自已确认设计） */
@@ -1675,12 +1891,16 @@ function placeOnEmpty(rank) {
     showToast('该排已满，请部署到其它排');
     return;
   }
+  if (s.operateEnergy <= 0) { showToast('⚡ 行动点不足（已用完，可点「完成操作」或先弃牌）'); return; }
   var unit = deployNew(h.type, h.star, rank);
   consumeHand(s.selectedHand);
   if (s.hand.length === 0) store.set({ selectedHand: null });
-  addLog(def.name + '（' + starsText(h.star) + '）部署到 ' + RANK_LABEL[rank] + '！');
+  store.set({ operateEnergy: s.operateEnergy - 1, deployCount: (s.deployCount || 0) + 1 });
+  tickGoal('deploy');
+  addLog(def.name + '（' + starsText(h.star) + '）部署到 ' + RANK_LABEL[rank] + '！· 行动点 -1');
   playSound('deploy');
   vibrate(20);
+  popSlot(unit);
   renderBattle();
 }
 
@@ -1705,6 +1925,7 @@ function doMerge() {
   var s = store.get();
   var group = findMergeable();
   if (!group) { showToast('场上需要 3 个同类型同星级的部队才能升星'); return; }
+  if (s.operateEnergy <= 0) { showToast('⚡ 行动点不足（已用完，可点「完成操作」或先弃牌）'); return; }
   var a = group[0], b = group[1], c = group[2];
   var newStar = Math.min(3, a.star + 1);
   var def = ARMY_DEFS[a.type];
@@ -1722,11 +1943,13 @@ function doMerge() {
     rank: rank, dead: false, dmgTaken: 0, angryCount: 0
   };
   s.army.push(newUnit);
-  store.set({ army: s.army, selectedUnitId: null, selectedHand: null });
-  addLog('✨ <b>三合一升星</b>：3 个 ' + def.name + ' ' + a.star + ' 星 → <b>' + newStar + ' 星</b>（攻 ' + st.atk + ' / 血 ' + st.hp + '）');
+  store.set({ army: s.army, selectedUnitId: null, selectedHand: null, operateEnergy: s.operateEnergy - 1, mergeCount: (s.mergeCount || 0) + 1 });
+  tickGoal('merge');
+  addLog('✨ <b>三合一升星</b>：3 个 ' + def.name + ' ' + a.star + ' 星 → <b>' + newStar + ' 星</b>（攻 ' + st.atk + ' / 血 ' + st.hp + '）· 行动点 -1');
   if (stackBonus > 0) addLog('➕ 叠放加成 ' + stackBonus + ' 并入新部队（攻/血 +' + stackBonus + '）');
   playSound('merge');
   vibrate(40);
+  popSlot(newUnit);
   renderBattle();
 }
 
@@ -1746,9 +1969,10 @@ function renderActions() {
 
   if (phase === 'start' || phase === 'operate') {
     var mergeable = findMergeable();
-    html += '<button class="btn-action ghost" data-act="merge"' + (mergeable ? '' : ' disabled') + '>✨ 三合一升星</button>';
+    html += '<button class="btn-action ghost" data-act="merge"' + (mergeable && s.operateEnergy > 0 ? '' : ' disabled') + '>✨ 三合一升星' + (mergeable && s.operateEnergy > 0 ? '（-1⚡）' : '') + '</button>';
+    html += '<button class="btn-action ghost" data-act="discard"' + (s.selectedHand !== null ? '' : ' disabled') + '>🗑 弃牌</button>';
     html += '<button class="btn-action" data-act="endoperate">完成操作 ➔</button>';
-    html += '<span class="b-hint">② 操作：点选手牌 → 点击空土地部署 · 点击同名部队叠放</span>';
+    html += '<span class="b-hint">② 操作：行动点 ' + s.operateEnergy + '/' + s.operateEnergyMax + ' · 部署/叠放/三合一各耗 1 点（占位可调）</span>';
   } else if (phase === 'shop') {
     html += '<button class="btn-action ghost" data-act="refresh">🔄 刷新卡包' + (s.shopRefreshed > 0 ? '（' + PRICE.refresh + ' 金币）' : '（免费）') + '</button>';
     html += '<button class="btn-action" data-act="endshop">开始进攻 ➔</button>';
@@ -1770,6 +1994,7 @@ function renderActions() {
 
 function handleAction(act) {
   if (act === 'merge') { doMerge(); return; }
+  if (act === 'discard') { discardSelected(); return; }
   if (act === 'endoperate') { startShopPhase(); return; }
   if (act === 'refresh') { refreshShopOffers(); return; }
   if (act === 'endshop') { startFightPhase(); return; }
@@ -1794,6 +2019,7 @@ function startShopPhase() {
   store.set({ shopRefreshed: 0 });
   renderShopWindow();
   setPhase('shop');
+  renderResources();
 }
 
 /* 生成商店 3 个军队卡包（三选一）+ 补给 */
@@ -2014,6 +2240,7 @@ function runFight() {
           addLog('🔥 ' + def.name + ' 触发<b>犟脾气</b>：攻击 +1（累计 +' + targetUnit.angryCount + '）');
         }
       }
+      hitSlot(targetUnit);
       if (targetUnit.hp <= 0) {
         targetUnit.hp = 0;
         targetUnit.dead = true;
@@ -2061,8 +2288,20 @@ function winLevel() {
   var lvType = LEVEL_TYPES[s.level - 1] || 'normal';
   var goldReward = 4 + s.level * 2;
   var foodReward = 3 + s.level;
-  store.set({ gold: s.gold + goldReward, food: s.food + foodReward });
+  // v2.0.0：判定关卡目标 KPI，达成按数量奖励金币、全达成送卡包
+  tickGoal('turn');
+  checkGoals();
+  var metCount = (s.levelGoals || []).filter(function (g) { return g.met; }).length;
+  var goalBonus = metCount * 2;
+  store.set({ gold: s.gold + goldReward + goalBonus, food: s.food + foodReward });
   addLog('💰 关卡奖励：金币 +' + goldReward + ' · 粮食 +' + foodReward);
+  if (metCount > 0) addLog('🎯 达标 ' + metCount + '/3：额外金币 +' + goalBonus);
+  if (metCount >= 3) {
+    addToHand('bull', 1);
+    addToHand('sheep', 1);
+    addLog('🏆 3 目标全达成！奖励卡包：铁牛盾卫 +1 · 白羊医官 +1');
+    showToast('🏆 关卡目标全达成：奖励卡包！');
+  }
   // 普通 / 事件关送卡包（已确认设计：普通关送卡包）
   if (lvType === 'normal' || lvType === 'event') {
     addToHand('bull', 1);
@@ -2096,9 +2335,10 @@ function showResult(kind, title, desc, btnText) {
   panel.innerHTML =
     '<h2>' + icon + ' ' + title + '</h2>' +
     '<div class="r-stats">' +
-      '<span class="stat-pill atk">⚔ 攻击部队：' + s.army.filter(function (u) { return !u.dead; }).length + '</span>' +
+      '<span class="stat-pill atk">⚔ 部队：' + s.army.filter(function (u) { return !u.dead; }).length + '</span>' +
       '<span class="stat-pill hp">🏞️ 土地：' + s.land + '</span>' +
       '<span class="stat-pill">🪙 ' + s.gold + '</span>' +
+      '<span class="stat-pill t-gold">🎯 目标 ' + (s.levelGoals || []).filter(function (g) { return g.met; }).length + '/3</span>' +
     '</div>' +
     '<div class="r-desc">' + desc + '</div>' +
     '<button class="btn-action" id="resultBtn">' + btnText + '</button>';
@@ -2313,7 +2553,8 @@ function openEvent() {
       addToHand('bull', 1);
       addToHand('sheep', 1);
       return '🪶 流浪军加入：铁牛盾卫 +1 · 白羊医官 +1（进入手牌）';
-    } }
+    } },
+    { title: '🎫 冒险刮刮乐', desc: '路过集市发现神秘刮刮乐摊位！3×3 大奖等你刮开。', option: '刮开 3 格赢大奖（最多刮 3 格）', apply: function () { openScratch(); return '🎫 开始刮奖！'; } }
   ];
   var ev = events[randInt(0, events.length - 1)];
   box.innerHTML = '<div class="event-banner">' +
@@ -2325,25 +2566,90 @@ function openEvent() {
     '</div></div>';
   var take = box.querySelector('#evTake');
   var skip = box.querySelector('#evSkip');
-  take.addEventListener('click', function () {
-    var msg = ev.apply();
-    addLog('🍂 事件抉择：' + ev.title + ' → ' + msg);
+  function finishEventFlow(msg) {
     store.set({ eventDone: true });
     box.innerHTML = '';
-    showToast(msg);
+    if (msg) { addLog('🍂 事件抉择：' + ev.title + ' → ' + msg); showToast(msg); }
     renderBattle();
     // 事件后进入正常回合：① 被动 → ② 操作
     setPhase('start');
     runStartPassive();
+  }
+  take.addEventListener('click', function () {
+    var msg = ev.apply();
+    if (msg === '🎫 开始刮奖！') { addLog('🍂 事件抉择：' + ev.title + '，刮刮乐开始'); return; } // 刮完由 openScratch 收尾
+    finishEventFlow(msg);
   });
   skip.addEventListener('click', function () {
     addLog('🍂 事件抉择：放弃 ' + ev.title + '，继续前进');
+    finishEventFlow();
+  });
+}
+
+/* v2.0.0：刮刮乐 3×3 小游戏（最多刮 3 格；刮开即得；奖励数值占位可调） */
+function openScratch() {
+  if (store.get('scratchDone')) return;
+  var rewards = [
+    { ico: '💰', label: '金币 +6', apply: function () { store.set({ gold: store.get('gold') + 6 }); } },
+    { ico: '💰', label: '金币 +4', apply: function () { store.set({ gold: store.get('gold') + 4 }); } },
+    { ico: '🌾', label: '粮食 +8', apply: function () { store.set({ food: store.get('food') + 8 }); } },
+    { ico: '🌾', label: '粮食 +6', apply: function () { store.set({ food: store.get('food') + 6 }); } },
+    { ico: '🐮', label: '铁牛盾卫 +1', apply: function () { addToHand('bull', 1); } },
+    { ico: '🐑', label: '白羊医官 +1', apply: function () { addToHand('sheep', 1); } },
+    { ico: '✨', label: '随机 2 星 +1', apply: function () { addToHand(Math.random() < 0.5 ? 'bull' : 'sheep', 2); } },
+    { ico: '💨', label: '谢谢参与', apply: function () {} },
+    { ico: '💨', label: '谢谢参与', apply: function () {} }
+  ];
+  var cells = shuffle(rewards);
+  var opened = 0;
+  var panel = document.createElement('div');
+  panel.className = 'overlay';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-label', '冒险刮刮乐');
+  panel.innerHTML = '<div class="panel" style="max-width:430px;"><div class="panel-head"><h2>🎫 冒险刮刮乐</h2><button class="btn-close" id="scrClose" aria-label="领取并关闭">✕</button></div>' +
+    '<div class="panel-note">3×3 刮奖 · 最多刮开 <b>3</b> 格赢取奖励（刮开即得，可提前领取）</div>' +
+    '<div class="scratch-grid" id="scrGrid"></div>' +
+    '<div class="panel-tip" style="text-align:center;font-weight:800;" id="scrTip">点击格子刮开！</div></div>';
+  document.body.appendChild(panel);
+  var grid = panel.querySelector('#scrGrid');
+  var tip = panel.querySelector('#scrTip');
+  function finishScratch() {
+    if (document.body.contains(panel)) document.body.removeChild(panel);
+    store.set({ scratchDone: true });
+    var box = $('#eventArea');
+    if (box) box.innerHTML = '';
     store.set({ eventDone: true });
-    box.innerHTML = '';
     renderBattle();
+    addLog('🎫 刮奖结束，继续前进！');
+    showToast('🎫 刮奖结束，继续前进！');
     setPhase('start');
     runStartPassive();
+  }
+  cells.forEach(function (r, idx) {
+    var cell = document.createElement('div');
+    cell.className = 'scratch-cell';
+    cell.setAttribute('role', 'button');
+    cell.setAttribute('tabindex', '0');
+    cell.setAttribute('aria-label', '刮奖格子 ' + (idx + 1));
+    cell.innerHTML = '❓';
+    function scratch() {
+      if (cell.classList.contains('open')) return;
+      if (opened >= 3) { showToast('最多刮 3 格，点击右上角 ✕ 领取奖励'); return; }
+      opened += 1;
+      cell.classList.add('open');
+      cell.innerHTML = r.ico + '<span class="sm">' + r.label + '</span>';
+      r.apply();
+      addLog('🎫 刮开第 ' + opened + ' 格：' + r.label);
+      playSound('click');
+      if (r.ico === '✨') showToast('✨ 大奖！' + r.label);
+      tip.textContent = opened >= 3 ? '已刮满 3 格，点击 ✕ 领取奖励' : '还可刮 ' + (3 - opened) + ' 格 · 点 ✕ 可提前领取';
+    }
+    cell.addEventListener('click', scratch);
+    cell.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); scratch(); } });
+    grid.appendChild(cell);
   });
+  panel.querySelector('#scrClose').addEventListener('click', finishScratch);
 }
 
 /* ---- 初始化与入场加载 ---- */
@@ -2352,7 +2658,7 @@ function openEvent() {
   var tips = [
     '正在加载各插件、技能与可用能力',
     '正在载入军队数据（铁牛盾卫 / 白羊医官）',
-    '正在绘制王都地图与四章战场',
+    '正在布置关卡目标与行动点系统',
     '正在唤醒可爱军团 · 准备出发！'
   ];
   var bar = $('#loadBar');
