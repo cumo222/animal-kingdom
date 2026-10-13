@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="动物王国 Animal Kingdom - 国家战争防御题材的可爱动物军队合成游戏主页">
+<title>动物王国 · 国家战争防御</title>
+<!--
+  =====================================================================
+  动物王国 Animal Kingdom - 游戏首页（主菜单界面）
+  ---------------------------------------------------------------------
+  更新说明（每次更新代码都必须维护本注释块）：
+  v0.1.0  2026-10-13  首次实现：
+    - 首页主菜单界面（可爱动物军队/治愈系卡通乐园风）
+    - 入场加载画面（呼应「加载所有插件与技能」）
+    - 系统入口：开始游戏 / 军队图鉴 / 关卡章节 / 商店 / 设置
+    - 军队图鉴内置已确认设计的「铁牛盾卫」「白羊医官」两份卡牌
+    - 章节选择展示四章 + 无限模式
+    - 响应式：320px ~ 2560px 均无横向溢出
+    - 全部状态使用内存 store，满足沙箱 iframe 运行时约束
+  ---------------------------------------------------------------------
+  视觉契约（设计假设 design-hypothesis）：
+    - 风格：治愈系卡通乐园（奶油天空 + 翠绿草地 + 暖白木纹面板）
+    - 主色：天蓝 #8FD3F4 / 奶油 #FFF3C4 / 草绿 #7BC96F / 暖白 #FFF9E8
+    - 强调：橙 #FF8A3D / 金黄 #FFC94D / 可可棕文字 #5B4636
+    - 动物：全部内联 SVG 矢量插画（可无限缩放、无外部资源）
+  =====================================================================
+-->
+<style>
+/* =====================================================================
+   1. 设计令牌（Design Tokens）
+   集中管理色彩、圆角、阴影、间距，保证整体一致性，方便后续统一改版。
+   ===================================================================== */
+:root {
+  --sky-top: #8FD3F4;        /* 天空上部：明亮天蓝 */
+  --sky-bottom: #FFF3C4;     /* 天空下部：奶油黄，接近地平线的暖光 */
+  --grass-dark: #4FA857;     /* 草地深色带 */
+  --grass-light: #7BC96F;    /* 草地浅色带 */
+  --leaf: #8ED081;           /* 树叶/灌木 */
+  --panel: #FFF9E8;          /* 面板暖白底 */
+  --panel-2: #FFF3D0;        /* 面板次级暖黄底 */
+  --border: #E8B56C;         /* 木色描边 */
+  --border-soft: #F0D9A8;    /* 弱描边 */
+  --accent: #FF8A3D;         /* 主强调橙（主要行动按钮） */
+  --accent-deep: #F06A1F;    /* 强调深（按下态） */
+  --accent-2: #FFC94D;       /* 次强调金黄 */
+  --ink: #5B4636;            /* 正文可可棕 */
+  --ink-soft: #8A6F55;       /* 次要文字 */
+  --ink-faint: #B39A7D;      /* 弱文字 */
+  --white: #FFFFFF;
+  --radius-lg: 28px;         /* 大圆角：面板/英雄按钮 */
+  --radius-md: 18px;         /* 中圆角：菜单卡 */
+  --radius-sm: 12px;         /* 小圆角：标签 */
+  --shadow-card: 0 10px 0 rgba(122, 92, 52, 0.18), 0 18px 30px rgba(62, 94, 46, 0.16); /* 卡通厚阴影 */
+  --shadow-btn: 0 6px 0 rgba(122, 92, 52, 0.22), 0 10px 16px rgba(62, 94, 46, 0.14);
+  --font: "Varela Round", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+}
+
+/* =====================================================================
+   2. 基础重置与全局
+   ===================================================================== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 62%);
+  overflow-x: hidden;           /* 防止装饰元素意外造成横向滚动 */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 按钮 / 卡片统一去掉默认外观，由自定义样式接管 */
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+/* 可见焦点环：键盘用户可辨识当前聚焦项（无障碍） */
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+/* 隐藏元素工具类 */
+.hidden { display: none !important; }
+
+/* =====================================================================
+   3. 背景层：天空、云朵、太阳、远山、草地、树木
+   所有装饰均为内联 SVG 或纯 CSS，不引入任何外部资源。
+   ===================================================================== */
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;         /* 装饰层不拦截点击 */
+  overflow: hidden;
+}
+
+/* 太阳：右上角柔和光斑 */
+.sun {
+  position: absolute;
+  top: 4vh;
+  right: 6vw;
+  width: clamp(64px, 9vw, 120px);
+  height: clamp(64px, 9vw, 120px);
+  background: radial-gradient(circle, #FFF2A8 0%, #FFD96B 60%, rgba(255, 217, 107, 0) 72%);
+  border-radius: 50%;
+  opacity: 0.85;
+}
+
+/* 云朵：纯 CSS 圆角组合，带轻微漂浮动画 */
+.cloud {
+  position: absolute;
+  width: 120px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  filter: drop-shadow(0 6px 6px rgba(76, 120, 150, 0.18));
+  animation: drift 16s ease-in-out infinite;
+}
+.cloud::before,
+.cloud::after {
+  content: "";
+  position: absolute;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+}
+.cloud::before { width: 52px; height: 52px; top: -26px; left: 18px; }
+.cloud::after  { width: 38px; height: 38px; top: -18px; right: 18px; }
+.cloud-1 { top: 12%; left: 8%;  animation-delay: 0s; }
+.cloud-2 { top: 22%; left: 58%; animation-delay: -5s; transform: scale(0.8); }
+.cloud-3 { top: 7%;  left: 34%; animation-delay: -9s; transform: scale(0.65); }
+
+/* 地面：草地两层 + 前景草丛、石头、小树 */
+.ground {
+  position: fixed;
+  inset: auto 0 0 0;
+  height: 42%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--grass-light) 0%, var(--grass-dark) 100%);
+  border-radius: 46% 38% 0 0 / 22% 18% 0 0; /* 地平线微微弧形，增加乐园感 */
+}
+
+/* 点缀小树：SVG 已在 HTML 中直接书写，这里只定义定位 */
+.deco-tree { position: absolute; bottom: 8%; }
+.deco-tree.t1 { right: 5%; width: clamp(70px, 10vw, 150px); }
+.deco-tree.t2 { left: 4%;  width: clamp(56px, 8vw, 120px); bottom: 12%; }
+
+/* 前景草丛与石头：同样为 SVG，仅控制位置 */
+.deco-bush { position: absolute; bottom: 5%; }
+.deco-bush.b1 { left: 12%; width: clamp(64px, 9vw, 140px); }
+.deco-bush.b2 { right: 14%; width: clamp(48px, 7vw, 110px); bottom: 7%; }
+.deco-bush.b3 { left: 42%; width: clamp(40px, 5vw, 80px); bottom: 6%; }
+
+/* 主舞台容器 */
+.stage {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(14px, 3vw, 34px) clamp(14px, 4vw, 44px) 18px;
+}
+
+/* =====================================================================
+   4. 顶部栏：品牌 Logo + 玩家资源概览
+   ===================================================================== */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 品牌：徽章 SVG + 游戏名 + 题材标语 */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: pop-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.brand-badge { width: clamp(52px, 7vw, 72px); height: auto; filter: drop-shadow(0 4px 4px rgba(76, 60, 30, 0.25)); }
+.brand-name { font-size: clamp(22px, 4vw, 34px); font-weight: 800; letter-spacing: 2px; line-height: 1; }
+.brand-name .cn { display: block; }
+.brand-name .en { font-size: clamp(10px, 1.6vw, 13px); font-weight: 600; color: var(--ink-soft); letter-spacing: 4px; }
+
+/* 资源条：金币 / 粮食（当前为界面演示数值，正式数值待数值体系落地） */
+.resources {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.resource-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 249, 232, 0.92);
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px 6px 8px;
+  font-weight: 800;
+  font-size: clamp(13px, 2vw, 16px);
+  box-shadow: var(--shadow-btn);
+}
+.resource-chip svg { width: 20px; height: 20px; }
+
+/* =====================================================================
+   5. 主菜单：口号 + 中央菜单卡 + 五个系统入口
+   ===================================================================== */
+.menu {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 3vh, 26px);
+  padding: 20px 0;
+}
+
+/* 进入王国的引导语 */
+.slogan {
+  font-size: clamp(14px, 2.4vw, 20px);
+  font-weight: 700;
+  color: var(--ink);
+  background: rgba(255, 249, 232, 0.85);
+  border: 2px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 8px 20px;
+  box-shadow: var(--shadow-btn);
+  animation: pop-in 0.6s 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  text-align: center;
+}
+
+/* 菜单主卡片：木纹暖白面板，承载所有入口按钮 */
+.menu-card {
+  width: min(560px, 92vw);
+  background: var(--panel);
+  border: 3px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: clamp(16px, 3vw, 26px);
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: 12px;
+  animation: pop-in 0.55s 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* 菜单按钮通用样式：大圆角、厚阴影、按下下沉（卡通感） */
+.menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  background: var(--panel-2);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-weight: 800;
+  font-size: clamp(15px, 2.4vw, 18px);
+  color: var(--ink);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  box-shadow: var(--shadow-btn);
+}
+.menu-btn:hover  { transform: translateY(-2px); }
+.menu-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(122, 92, 52, 0.22); }
+.menu-btn .ico { width: 42px; height: 42px; flex: 0 0 42px; }
+.menu-btn .label { flex: 1; text-align: left; display: flex; flex-direction: column; }
+.menu-btn .label small { font-weight: 600; color: var(--ink-faint); font-size: 0.72em; letter-spacing: 1px; }
+.menu-btn .arrow { font-size: 0.9em; color: var(--ink-faint); }
+
+/* 英雄按钮：「开始游戏」放最大、最醒目 */
+.menu-btn.hero {
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-deep) 100%);
+  border-color: #E05A12;
+  color: var(--white);
+  font-size: clamp(19px, 3vw, 24px);
+  padding: 18px 20px;
+  justify-content: center;
+  letter-spacing: 6px;
+}
+.menu-btn.hero .ico { width: 52px; height: 52px; flex-basis: 52px; }
+.menu-btn.hero .label small { color: rgba(255, 255, 255, 0.85); }
+
+/* 次级按钮：2x2 网格 */
+.sub-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* =====================================================================
+   6. 底部信息条：版本 / 版权 / 状态提示
+   ===================================================================== */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: rgba(91, 70, 54, 0.85);
+  padding-top: 6px;
+}
+.footer .version {
+  background: rgba(255, 249, 232, 0.8);
+  border: 1.5px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-weight: 700;
+}
+.footer .memo { opacity: 0.8; }
+
+/* =====================================================================
+   7. Overlay 子面板：军队图鉴 / 关卡 / 商店 / 设置
+   通过 .hidden 与内存 currentView 切换，不依赖任何浏览器存储。
+   ===================================================================== */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgba(62, 74, 52, 0.42);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fade-in 0.22s ease both;
+}
+.panel {
+  background: var(--panel);
+  border: 3px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  width: min(780px, 96vw);
+  max-height: 86vh;
+  overflow-y: auto;             /* 小屏内容超高时可滚动，保证可达 */
+  padding: clamp(16px, 3vw, 26px);
+  animation: rise-in 0.24s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.panel-head h2 {
+  font-size: clamp(18px, 3vw, 24px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.panel-head h2 svg { width: 30px; height: 30px; }
+.btn-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--panel-2);
+  border: 2px solid var(--border);
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--ink-soft);
+  transition: transform 0.12s ease;
+}
+.btn-close:hover { transform: rotate(90deg); }
+
+/* 面板内提示文本占位 */
+.panel-note {
+  font-size: 13px;
+  color: var(--ink-soft);
+  background: var(--panel-2);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  border: 1.5px dashed var(--border);
+}
+
+/* 卡牌网格（图鉴 / 关卡 / 商店通用） */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+}
+.card {
+  background: var(--panel-2);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  text-align: center;
+  box-shadow: var(--shadow-btn);
+  transition: transform 0.12s ease;
+}
+.card:hover { transform: translateY(-3px); }
+.card .avatar { width: 92px; height: 92px; margin: 0 auto 8px; }
+.card h3 { font-size: 16px; margin-bottom: 4px; }
+.card .tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--white);
+  background: var(--grass-dark);
+  border-radius: 999px;
+  padding: 3px 10px;
+  margin-bottom: 8px;
+}
+.card .tag.t-accent { background: var(--accent-deep); }
+.card ul { list-style: none; text-align: left; font-size: 12px; line-height: 1.7; color: var(--ink); }
+.card ul b { color: var(--accent-deep); }
+
+/* 卡牌右下角属性角标：攻击 / 血量（呼应「右下角显示」的军队设计约定） */
+.stat-corner {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+.stat-pill {
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--white);
+}
+.stat-pill.atk { background: #E2604B; }
+.stat-pill.hp  { background: #4E9D5B; }
+
+/* 章节进度条 */
+.progress-track { height: 14px; background: #EDE0C4; border-radius: 999px; overflow: hidden; }
+.progress-fill {
+  height: 100%;
+  width: 62%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--grass-light), var(--grass-dark));
+}
+
+/* 设置行 */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 4px;
+  border-bottom: 1.5px dashed var(--border-soft);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-row .s-title { font-weight: 800; font-size: 15px; }
+.setting-row .s-desc { font-size: 12px; color: var(--ink-soft); }
+
+/* 开关（checkbox 视觉化） */
+.switch { position: relative; width: 56px; height: 30px; flex: 0 0 56px; }
+.switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.switch .knob {
+  position: absolute;
+  inset: 0;
+  background: #D8C7A8;
+  border-radius: 999px;
+  transition: background 0.18s;
+}
+.switch .knob::after {
+  content: "";
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  left: 3px;
+  top: 3px;
+  border-radius: 50%;
+  background: var(--white);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.18s;
+}
+.switch input:checked + .knob { background: var(--grass-dark); }
+.switch input:checked + .knob::after { transform: translateX(26px); }
+
+/* 商店商品卡 */
+.shop-item { display: flex; align-items: center; gap: 10px; }
+.shop-item svg { width: 40px; height: 40px; flex: 0 0 40px; }
+.shop-item .price { font-weight: 800; color: var(--accent-deep); font-size: 14px; }
+.badge-soon {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--accent-deep);
+  background: #FFE8D2;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* 开始游戏面板：战前简报 */
+.brief-box {
+  background: var(--panel-2);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.brief-box h3 { margin-bottom: 8px; font-size: 16px; }
+.brief-box p { font-size: 13px; line-height: 1.8; color: var(--ink); }
+
+/* =====================================================================
+   8. Toast 轻提示（不依赖 alert）
+   ===================================================================== */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 34px;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(91, 70, 54, 0.94);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 999px;
+  padding: 10px 22px;
+  z-index: 30;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* =====================================================================
+   9. 入场加载画面
+   呼应「加载所有插件、技能等」：进入王国前先集结动物军团。
+   展示结束后由 JS 移除，刷新即回到初始值属预期（沙箱内存态）。
+   ===================================================================== */
+#loader {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 78%);
+}
+#loader .mark { width: clamp(90px, 14vw, 130px); animation: bob 1.8s ease-in-out infinite; }
+#loader .load-label { font-weight: 800; font-size: clamp(15px, 2.4vw, 18px); letter-spacing: 2px; }
+#loader .bar-track {
+  width: min(300px, 70vw);
+  height: 12px;
+  background: #EADFC2;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(122, 92, 52, 0.18);
+}
+#loader .bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent));
+  transition: width 0.3s ease;
+}
+#loader .load-tip { font-size: 12px; color: var(--ink-soft); }
+
+/* =====================================================================
+   10. 动画关键帧
+   ===================================================================== */
+@keyframes drift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(24px); } }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.92) translateY(14px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+
+/* 用户偏好减少动效：所有动画落到稳定态 */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  #loader .mark { animation: none; }
+  .cloud { animation: none; }
+}
+
+/* =====================================================================
+   11. 响应式适配
+   - 320px ~ 767px：竖排单列菜单、紧凑顶部、小屏字号
+   - 768px 以上：恢复网格
+   ===================================================================== */
+@media (max-width: 767px) {
+  .sub-grid { grid-template-columns: 1fr; }          /* 次级按钮改单列 */
+  .topbar { justify-content: center; }                /* 顶部居中 */
+  .brand { flex-direction: column; text-align: center; gap: 6px; }
+  .menu-btn { padding: 11px 14px; }
+  .menu-btn .ico { width: 36px; height: 36px; flex-basis: 36px; }
+  .menu-btn.hero { letter-spacing: 3px; }
+  .footer { justify-content: center; text-align: center; }
+  .footer .memo { width: 100%; }
+  .cards { grid-template-columns: 1fr 1fr; }          /* 小屏图鉴仍可两列 */
+  .cards .card .avatar { width: 72px; height: 72px; }
+}
+
+@media (max-width: 390px) {
+  .cards { grid-template-columns: 1fr; }              /* 超窄屏图鉴单列，避免挤压 */
+  .resource-chip { padding: 5px 9px 5px 6px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ================================================================
+     入场加载画面：开始前先「集结动物军团」
+     ================================================================ -->
+<div id="loader" role="status" aria-live="polite">
+  <!-- 王冠盾牌徽章（加载标志） -->
+  <svg class="mark" viewBox="0 0 120 120" role="img" aria-label="动物王国徽章">
+    <!-- 阳光放射线 -->
+    <g stroke="#FFC94D" stroke-width="5" stroke-linecap="round">
+      <line x1="60" y1="6"  x2="60" y2="18"/>
+      <line x1="60" y1="102" x2="60" y2="114"/>
+      <line x1="6"  y1="60" x2="18" y2="60"/>
+      <line x1="102" y1="60" x2="114" y2="60"/>
+      <line x1="22" y1="22" x2="30" y2="30"/>
+      <line x1="90" y1="90" x2="98" y2="98"/>
+      <line x1="98" y1="22" x2="90" y2="30"/>
+      <line x1="30" y1="90" x2="22" y2="98"/>
+    </g>
+    <!-- 盾牌 -->
+    <path d="M60 22 L88 32 V58 C88 78 76 90 60 98 C44 90 32 78 32 58 V32 Z" fill="#FFF9E8" stroke="#E8B56C" stroke-width="4"/>
+    <!-- 盾牌上的王冠 -->
+    <path d="M44 38 L48 30 L56 38 L60 28 L64 38 L72 30 L76 38 L60 50 Z" fill="#FFC94D" stroke="#F0A020" stroke-width="2"/>
+    <!-- 盾牌上的爱心 -->
+    <path d="M60 58 C54 52 46 58 60 70 C74 58 66 52 60 58 Z" fill="#FF8A3D"/>
+    <!-- 盾牌上的星星 -->
+    <path d="M60 78 L63 72 L69 72 L65 67 L66 61 L60 64 L54 61 L55 67 L51 72 L57 72 Z" fill="#FFC94D"/>
+    <!-- 下方爪印（动物） -->
+    <ellipse cx="47" cy="100" rx="7" ry="5" fill="#8A6F55"/>
+    <ellipse cx="60" cy="102" rx="7" ry="5" fill="#8A6F55"/>
+    <ellipse cx="73" cy="100" rx="7" ry="5" fill="#8A6F55"/>
+  </svg>
+  <div class="load-label">正在集结动物军团…</div>
+  <div class="bar-track"><div class="bar-fill" id="loadBar"></div></div>
+  <div class="load-tip" id="loadTip">正在加载插件与技能</div>
+</div>
+
+<!-- ================================================================
+     主舞台
+     ================================================================ -->
+<div id="app" class="stage hidden">
+
+  <!-- 背景装饰层 -->
+  <div class="sky" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    <div class="cloud cloud-3"></div>
+  </div>
+  <div class="ground" aria-hidden="true">
+    <!-- 小树装饰 -->
+    <svg class="deco-tree t1" viewBox="0 0 100 120" aria-hidden="true">
+      <ellipse cx="50" cy="34" rx="34" ry="28" fill="#6FBF6B"/>
+      <ellipse cx="36" cy="26" rx="22" ry="18" fill="#8ED081"/>
+      <rect x="46" y="58" width="8" height="26" rx="3" fill="#B98A5F"/>
+    </svg>
+    <svg class="deco-tree t2" viewBox="0 0 100 120" aria-hidden="true">
+      <ellipse cx="50" cy="34" rx="28" ry="24" fill="#6FBF6B"/>
+      <ellipse cx="38" cy="28" rx="18" ry="14" fill="#8ED081"/>
+      <rect x="46" y="56" width="8" height="22" rx="3" fill="#B98A5F"/>
+    </svg>
+    <!-- 草丛 -->
+    <svg class="deco-bush b1" viewBox="0 0 120 70" aria-hidden="true">
+      <path d="M8 68 Q4 30 30 26 Q26 8 52 14 Q50 -4 74 10 Q80 2 96 22 Q118 16 112 44 Q120 60 108 68 Z" fill="#7BC96F"/>
+    </svg>
+    <svg class="deco-bush b2" viewBox="0 0 120 70" aria-hidden="true">
+      <path d="M12 66 Q6 34 34 30 Q30 12 56 18 Q54 2 78 12 Q86 4 98 24 Q116 18 112 46 Q118 58 106 66 Z" fill="#66BE68"/>
+    </svg>
+    <svg class="deco-bush b3" viewBox="0 0 120 70" aria-hidden="true">
+      <path d="M16 64 Q10 36 38 32 Q34 16 58 22 Q58 8 80 16 Q88 10 98 26 Q114 22 110 46 Q116 58 104 64 Z" fill="#8ED081"/>
+    </svg>
+  </div>
+
+  <!-- 顶部栏：品牌 + 资源概览 -->
+  <header class="topbar">
+    <div class="brand">
+      <!-- 徽章 SVG：盾牌 + 王冠 + 爪印 -->
+      <svg class="brand-badge" viewBox="0 0 120 120" role="img" aria-label="动物王国徽章">
+        <g stroke="#FFC94D" stroke-width="5" stroke-linecap="round">
+          <line x1="60" y1="8"  x2="60" y2="20"/>
+          <line x1="60" y1="100" x2="60" y2="112"/>
+          <line x1="8"  y1="60" x2="20" y2="60"/>
+          <line x1="100" y1="60" x2="112" y2="60"/>
+        </g>
+        <path d="M60 24 L86 33 V57 C86 76 74 88 60 96 C46 88 34 76 34 57 V33 Z" fill="#FFF9E8" stroke="#E8B56C" stroke-width="4"/>
+        <path d="M45 40 L49 32 L56 40 L60 30 L64 40 L71 32 L75 40 L60 51 Z" fill="#FFC94D" stroke="#F0A020" stroke-width="2"/>
+        <path d="M60 60 C54 54 46 60 60 71 C74 60 66 54 60 60 Z" fill="#FF8A3D"/>
+        <path d="M60 80 L62.5 75 L68 75 L64 71 L65 65 L60 68 L55 65 L56 71 L52 75 L57.5 75 Z" fill="#FFC94D"/>
+      </svg>
+      <div class="brand-name">
+        <span class="cn">动物王国</span>
+        <span class="en">ANIMAL KINGDOM</span>
+      </div>
+    </div>
+
+    <!-- 玩家资源概览：当前为界面演示数值，正式数值待「数值体系」落地后接入 -->
+    <div class="resources" aria-label="资源概览（演示数值）">
+      <div class="resource-chip" title="金币：用于招募军队、购买卡包与土地（演示数值）">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" fill="#FFC94D" stroke="#E8A020" stroke-width="2"/>
+          <path d="M12 6.5 L13.2 9.6 L16.4 9.8 L13.9 11.9 L14.7 15 L12 13.2 L9.3 15 L10.1 11.9 L7.6 9.8 L10.8 9.6 Z" fill="#F0A020"/>
+        </svg>
+        <span>金币 128</span>
+      </div>
+      <div class="resource-chip" title="粮食：军队每回合维持费（演示数值）">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3 C7 7 4 11 4 14 a8 8 0 0 0 16 0 C20 11 17 7 12 3 Z" fill="#8ED081" stroke="#4FA857" stroke-width="2"/>
+          <path d="M12 3 C12 8 12 11 12 14" stroke="#4FA857" stroke-width="2"/>
+        </svg>
+        <span>粮食 96</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主菜单区 -->
+  <main class="menu">
+    <div class="slogan">🐾 守卫家园 · 可爱军团出击</div>
+
+    <!-- 中央菜单卡 -->
+    <nav class="menu-card" aria-label="游戏主菜单">
+      <!-- 主行动：开始游戏 -->
+      <button class="menu-btn hero" data-view="play" aria-label="开始游戏">
+        <!-- 狮子头像：代表勇敢启程 -->
+        <svg class="ico" viewBox="0 0 100 100" aria-hidden="true">
+          <path d="M14 50 a36 36 0 1 1 72 0 a4 4 0 0 1 -4 4 L18 54 a4 4 0 0 1 -4 -4 Z" fill="#FFB03A"/>
+          <circle cx="26" cy="40" r="9" fill="#F08A20"/>
+          <circle cx="74" cy="40" r="9" fill="#F08A20"/>
+          <circle cx="50" cy="52" r="26" fill="#FFC97A"/>
+          <circle cx="42" cy="50" r="4" fill="#5B4636"/>
+          <circle cx="58" cy="50" r="4" fill="#5B4636"/>
+          <path d="M46 62 Q50 66 54 62" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M34 58 a4 4 0 0 0 8 0" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M58 58 a4 4 0 0 0 8 0" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
+        </svg>
+        <span class="label">开始游戏<small>START GAME</small></span>
+        <span class="arrow" aria-hidden="true">▶</span>
+      </button>
+
+      <!-- 四个系统入口：2x2 网格 -->
+      <div class="sub-grid">
+        <!-- 军队图鉴：猫头鹰（博学） -->
+        <button class="menu-btn" data-view="index" aria-label="打开军队图鉴">
+          <svg class="ico" viewBox="0 0 100 100" aria-hidden="true">
+            <ellipse cx="50" cy="60" rx="30" ry="26" fill="#C9A06C"/>
+            <circle cx="24" cy="44" r="14" fill="#C9A06C"/>
+            <circle cx="76" cy="44" r="14" fill="#C9A06C"/>
+            <circle cx="50" cy="52" r="26" fill="#EAD9A8"/>
+            <circle cx="40" cy="48" r="11" fill="#FFFFFF"/>
+            <circle cx="60" cy="48" r="11" fill="#FFFFFF"/>
+            <circle cx="42" cy="49" r="5" fill="#5B4636"/>
+            <circle cx="58" cy="49" r="5" fill="#5B4636"/>
+            <path d="M40 58 L46 60 L50 57 L54 60 L60 58" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <rect x="35" y="70" width="30" height="5" rx="2.5" fill="#8A6F55"/>
+          </svg>
+          <span class="label">军队图鉴<small>ARMY INDEX</small></span>
+          <span class="arrow" aria-hidden="true">▶</span>
+        </button>
+
+        <!-- 关卡章节：鹿（探索旅程） -->
+        <button class="menu-btn" data-view="levels" aria-label="打开关卡章节">
+          <svg class="ico" viewBox="0 0 100 100" aria-hidden="true">
+            <ellipse cx="50" cy="62" rx="30" ry="26" fill="#D9A05C"/>
+            <circle cx="18" cy="36" r="7" fill="#D9A05C"/>
+            <circle cx="82" cy="36" r="7" fill="#D9A05C"/>
+            <path d="M46 40 L42 20 L52 34" fill="#D9A05C"/>
+            <path d="M54 40 L58 20 L48 34" fill="#D9A05C"/>
+            <path d="M20 44 L10 30 L26 36" fill="#D9A05C"/>
+            <path d="M80 44 L90 30 L74 36" fill="#D9A05C"/>
+            <ellipse cx="50" cy="56" rx="24" ry="21" fill="#EBC390"/>
+            <circle cx="42" cy="53" r="4" fill="#5B4636"/>
+            <circle cx="58" cy="53" r="4" fill="#5B4636"/>
+            <path d="M45 65 Q50 70 55 65" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <ellipse cx="50" cy="74" rx="8" ry="5" fill="#FFF3D0"/>
+            <circle cx="24" cy="38" r="3" fill="#FFF3D0"/>
+            <circle cx="76" cy="38" r="3" fill="#FFF3D0"/>
+          </svg>
+          <span class="label">关卡章节<small>LEVELS</small></span>
+          <span class="arrow" aria-hidden="true">▶</span>
+        </button>
+
+        <!-- 商店：松鼠（囤货） -->
+        <button class="menu-btn" data-view="shop" aria-label="打开王国商店">
+          <svg class="ico" viewBox="0 0 100 100" aria-hidden="true">
+            <path d="M14 62 Q14 30 38 30 Q50 14 64 30 Q88 30 88 62 L84 86 Q80 92 74 92 L28 92 Q22 92 18 86 Z" fill="#D99A4E"/>
+            <path d="M82 46 a24 24 0 0 0 -40 -16 a32 32 0 0 1 12 10 a18 18 0 0 0 -12 6 Z" fill="#C9823B"/>
+            <circle cx="42" cy="56" r="5" fill="#5B4636"/>
+            <circle cx="60" cy="56" r="5" fill="#5B4636"/>
+            <path d="M42 66 Q50 74 58 66" stroke="#5B4636" stroke-width="4" fill="none" stroke-linecap="round"/>
+            <circle cx="30" cy="68" r="10" fill="#F0B25C"/>
+            <circle cx="72" cy="68" r="10" fill="#F0B25C"/>
+          </svg>
+          <span class="label">商店<small>SHOP</small></span>
+          <span class="arrow" aria-hidden="true">▶</span>
+        </button>
+
+        <!-- 设置：小熊（管控全局） -->
+        <button class="menu-btn" data-view="settings" aria-label="打开设置">
+          <svg class="ico" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="54" r="28" fill="#B98A5F"/>
+            <circle cx="26" cy="36" r="12" fill="#B98A5F"/>
+            <circle cx="74" cy="36" r="12" fill="#B98A5F"/>
+            <circle cx="50" cy="58" r="20" fill="#D9B488"/>
+            <circle cx="43" cy="55" r="3.5" fill="#5B4636"/>
+            <circle cx="57" cy="55" r="3.5" fill="#5B4636"/>
+            <path d="M45 66 Q50 71 55 66" stroke="#5B4636" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </svg>
+          <span class="label">设置<small>SETTINGS</small></span>
+          <span class="arrow" aria-hidden="true">▶</span>
+        </button>
+      </div>
+    </nav>
+  </main>
+
+  <!-- 底部信息条 -->
+  <footer class="footer">
+    <span class="version">v0.1.0 · 首页</span>
+    <span class="memo">页面为「动物王国」开发中的主菜单演示 · 数值与商店为占位，正式内容随游戏系统逐步接入</span>
+    <span>© 2026 Animal Kingdom</span>
+  </footer>
+</div>
+
+<!-- ================================================================
+     开始游戏面板（战前简报）
+     ================================================================ -->
+<section class="overlay hidden" id="panel-play" role="dialog" aria-modal="true" aria-label="开始游戏">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>⚔️ 开始游戏 · 战前简报</h2>
+      <button class="btn-close" data-close aria-label="关闭">✕</button>
+    </div>
+    <!-- 说明：这些是已确认的玩法规则，不包含虚构内容 -->
+    <div class="brief-box">
+      <h3>第 1 章 · 草原兽潮（即将开放）</h3>
+      <p>
+        每关回合流程：① 回合开始（驻军被动触发）→ ② 合成 / 操作（三合一升星 · 同名叠放）→ ③ 商店窗口 → ④ 敌人推进攻击（先攻击前排，再中排，后勤最后）→ ⑤ 回合结算。<br>
+        目标：在敌人攻入王都前，用合成与叠放打造最强动物军团。
+      </p>
+      <p style="margin-top:8px;color:var(--ink-faint);font-size:12px;">※ 本章战斗数值与关卡详情正在制作中，敬请期待。</p>
+    </div>
+    <div class="cards">
+      <!-- 已设计的两支初始军队 -->
+      <div class="card">
+        <svg class="avatar" viewBox="0 0 120 120" role="img" aria-label="铁牛盾卫">
+          <!-- 铁牛盾卫：牛角 + 圆盾 + 坚毅表情 -->
+          <ellipse cx="60" cy="68" rx="34" ry="30" fill="#B98A5F"/>
+          <circle cx="34" cy="42" r="12" fill="#B98A5F"/>
+          <circle cx="86" cy="42" r="12" fill="#B98A5F"/>
+          <path d="M46 40 Q38 14 58 30" stroke="#F0E2C8" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <path d="M74 40 Q82 14 62 30" stroke="#F0E2C8" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <ellipse cx="60" cy="66" rx="24" ry="21" fill="#D9A05C"/>
+          <path d="M52 62 a3 3 0 0 1 6 0" fill="none" stroke="#5B4636" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M64 58 q4 2 3 7" fill="none" stroke="#5B4636" stroke-width="2.5" stroke-linecap="round"/>
+          <ellipse cx="48" cy="78" rx="10" ry="7" fill="#F0E2C8"/>
+          <circle cx="48" cy="78" r="2.5" fill="#5B4636"/>
+          <ellipse cx="46" cy="86" rx="5" ry="3" fill="#5B4636"/>
+          <ellipse cx="76" cy="86" rx="5" ry="3" fill="#5B4636"/>
+          <circle cx="96" cy="52" r="18" fill="#E8B56C" stroke="#C9823B" stroke-width="3"/>
+          <path d="M89 58 L93 55 L97 59 L100 54 L96 50 L100 47 L93 45 L90 50 L89 46 Z" fill="#C9823B" transform="translate(2,6) scale(0.8)"/>
+        </svg>
+        <h3>铁牛盾卫</h3>
+        <span class="tag">前线 · 盾卫</span>
+        <ul>
+          <li><b>被动</b>：铜皮，减伤 -1</li>
+          <li><b>触发</b>：牛角冲撞，前排单体 3 伤 + 延后 1 回合</li>
+          <li><b>天赋</b>：犟脾气，累计受 5 伤 +1 攻（最多 3 次）</li>
+        </ul>
+        <div class="stat-corner" aria-label="1星属性 攻击2 血量14">
+          <span class="stat-pill atk">⚔ 2</span>
+          <span class="stat-pill hp">❤ 14</span>
+        </div>
+      </div>
+      <div class="card">
+        <svg class="avatar" viewBox="0 0 120 120" role="img" aria-label="白羊医官">
+          <!-- 白羊医官：蓬松卷毛 + 红十字 -->
+          <circle cx="44" cy="44" r="12" fill="#FFF6E5"/>
+          <circle cx="76" cy="44" r="12" fill="#FFF6E5"/>
+          <circle cx="36" cy="66" r="13" fill="#FFF6E5"/>
+          <circle cx="84" cy="66" r="13" fill="#FFF6E5"/>
+          <ellipse cx="60" cy="68" rx="32" ry="30" fill="#FFF6E5"/>
+          <ellipse cx="60" cy="64" rx="20" ry="18" fill="#FFE9F0"/>
+          <path d="M48 54 Q46 38 58 42" stroke="#E8B56C" stroke-width="7" fill="none" stroke-linecap="round"/>
+          <path d="M72 54 Q74 38 62 42" stroke="#E8B56C" stroke-width="7" fill="none" stroke-linecap="round"/>
+          <circle cx="48" cy="58" r="8" fill="#FF9FB2"/>
+          <circle cx="72" cy="58" r="8" fill="#FF9FB2"/>
+          <circle cx="52" cy="62" r="3" fill="#5B4636"/>
+          <circle cx="68" cy="62" r="3" fill="#5B4636"/>
+          <path d="M56 70 Q60 74 64 70" stroke="#5B4636" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <circle cx="60" cy="82" r="11" fill="#FFFFFF" stroke="#E2604B" stroke-width="2.5"/>
+          <path d="M60 75 V89 M54 82 H66" stroke="#E2604B" stroke-width="3.5" stroke-linecap="round"/>
+        </svg>
+        <h3>白羊医官</h3>
+        <span class="tag t-accent">支援 · 牧师</span>
+        <ul>
+          <li><b>被动</b>：羊毛治愈，治疗血量最低友军 3</li>
+          <li><b>触发</b>：温暖咩叫，全体治疗 2</li>
+          <li><b>天赋</b>：羊毛丰收，每回合 +1 金币</li>
+        </ul>
+        <div class="stat-corner" aria-label="1星属性 攻击1 血量6">
+          <span class="stat-pill atk">⚔ 1</span>
+          <span class="stat-pill hp">❤ 6</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     军队图鉴面板
+     ================================================================ -->
+<section class="overlay hidden" id="panel-index" role="dialog" aria-modal="true" aria-label="军队图鉴">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>
+        <!-- 图鉴书图标 -->
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 5 a4 4 0 0 1 4 -4 h12 v18 a4 4 0 0 1 -4 4 H6 a4 4 0 0 1 -4 -4 Z" fill="#FFC97A" stroke="#C9823B" stroke-width="1.5"/>
+          <path d="M8 5 h12 v14 a4 4 0 0 1 -4 4 H8 Z" fill="#FFF9E8" stroke="#C9823B" stroke-width="1.5"/>
+          <path d="M11 9 h6 M11 13 h6" stroke="#C9823B" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        军队图鉴
+      </h2>
+      <button class="btn-close" data-close aria-label="关闭">✕</button>
+    </div>
+    <div class="panel-note">图鉴收录已确认设计的动物军队。星数成长：1星 → 2星 → 3星（三合一升星，每星技能升级）；同名军队可直接叠放，每次 +1 攻击 +1 血量。</div>
+    <div class="cards">
+      <!-- 铁牛盾卫完整三阶 -->
+      <div class="card">
+        <svg class="avatar" viewBox="0 0 120 120" role="img" aria-label="铁牛盾卫头像">
+          <ellipse cx="60" cy="68" rx="34" ry="30" fill="#B98A5F"/>
+          <circle cx="34" cy="42" r="12" fill="#B98A5F"/>
+          <circle cx="86" cy="42" r="12" fill="#B98A5F"/>
+          <path d="M46 40 Q38 14 58 30" stroke="#F0E2C8" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <path d="M74 40 Q82 14 62 30" stroke="#F0E2C8" stroke-width="8" fill="none" stroke-linecap="round"/>
+          <ellipse cx="60" cy="66" rx="24" ry="21" fill="#D9A05C"/>
+          <path d="M52 62 a3 3 0 0 1 6 0" fill="none" stroke="#5B4636" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M64 58 q4 2 3 7" fill="none" stroke="#5B4636" stroke-width="2.5" stroke-linecap="round"/>
+          <ellipse cx="48" cy="78" rx="10" ry="7" fill="#F0E2C8"/>
+          <circle cx="48" cy="78" r="2.5" fill="#5B4636"/>
+        </svg>
+        <h3>铁牛盾卫</h3>
+        <span class="tag">前线 · 盾卫</span>
+        <ul>
+          <li><b>1星</b>：攻 2 · 血 14；铜皮减伤 -1；牛角冲撞（前排单体 3 伤+延后）</li>
+          <li><b>2星</b>：攻 3 · 血 20；减伤 -2</li>
+          <li><b>3星</b>：攻 5 · 血 28；减伤 -3；冲撞全体 3 伤</li>
+          <li><b>天赋</b>：犟脾气，累计受 5 伤 +1 攻（最多 3 次）</li>
+        </ul>
+        <div class="stat-corner" aria-label="1星攻击2 血量14">
+          <span class="stat-pill atk">⚔ 2</span>
+          <span class="stat-pill hp">❤ 14</span>
+        </div>
+      </div>
+      <!-- 白羊医官完整三阶 -->
+      <div class="card">
+        <svg class="avatar" viewBox="0 0 120 120" role="img" aria-label="白羊医官头像">
+          <circle cx="44" cy="44" r="12" fill="#FFF6E5"/>
+          <circle cx="76" cy="44" r="12" fill="#FFF6E5"/>
+          <circle cx="36" cy="66" r="13" fill="#FFF6E5"/>
+          <circle cx="84" cy="66" r="13" fill="#FFF6E5"/>
+          <ellipse cx="60" cy="68" rx="32" ry="30" fill="#FFF6E5"/>
+          <ellipse cx="60" cy="64" rx="20" ry="18" fill="#FFE9F0"/>
+          <path d="M48 54 Q46 38 58 42" stroke="#E8B56C" stroke-width="7" fill="none" stroke-linecap="round"/>
+          <path d="M72 54 Q74 38 62 42" stroke="#E8B56C" stroke-width="7" fill="none" stroke-linecap="round"/>
+          <circle cx="48" cy="58" r="8" fill="#FF9FB2"/>
+          <circle cx="72" cy="58" r="8" fill="#FF9FB2"/>
+          <circle cx="52" cy="62" r="3" fill="#5B4636"/>
+          <circle cx="68" cy="62" r="3" fill="#5B4636"/>
+          <path d="M56 70 Q60 74 64 70" stroke="#5B4636" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <circle cx="60" cy="82" r="11" fill="#FFFFFF" stroke="#E2604B" stroke-width="2.5"/>
+          <path d="M60 75 V89 M54 82 H66" stroke="#E2604B" stroke-width="3.5" stroke-linecap="round"/>
+        </svg>
+        <h3>白羊医官</h3>
+        <span class="tag t-accent">支援 · 牧师</span>
+        <ul>
+          <li><b>1星</b>：攻 1 · 血 6；羊毛治愈（疗血最低友军 3）；温暖咩叫（全体治疗 2）</li>
+          <li><b>2星</b>：攻 2 · 血 10；单治 5 / 群治 3</li>
+          <li><b>3星</b>：攻 3 · 血 14；单治 8 / 群治 5</li>
+          <li><b>天赋</b>：羊毛丰收，每回合 +1 金币（3星 +2）</li>
+        </ul>
+        <div class="stat-corner" aria-label="1星攻击1 血量6">
+          <span class="stat-pill atk">⚔ 1</span>
+          <span class="stat-pill hp">❤ 6</span>
+        </div>
+      </div>
+      <!-- 待解锁占位 -->
+      <div class="card" style="opacity:.7;">
+        <div class="avatar" style="display:flex;align-items:center;justify-content:center;font-size:44px;background:#F4E8CC;border-radius:50%;">❔</div>
+        <h3>待解锁兵种</h3>
+        <span class="tag">敬请期待</span>
+        <ul>
+          <li>更多前线、输出、后勤、支援与核心兵种</li>
+          <li>如 步兵 / 弓手 / 农夫 / 牧师系等</li>
+        </ul>
+      </div>
+      <div class="card" style="opacity:.7;">
+        <div class="avatar" style="display:flex;align-items:center;justify-content:center;font-size:44px;background:#F4E8CC;border-radius:50%;">⭐</div>
+        <h3>升星强化</h3>
+        <span class="tag">敬请期待</span>
+        <ul>
+          <li>三合一合成升星，最高三星</li>
+          <li>同名叠放：每次 +1 攻 +1 血（无上限）</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     关卡章节面板
+     ================================================================ -->
+<section class="overlay hidden" id="panel-levels" role="dialog" aria-modal="true" aria-label="关卡章节">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>
+        <!-- 地图旗帜图标 -->
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 3 L5 21" stroke="#C9823B" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M5 4 L19 8 L5 12 Z" fill="#FF8A3D" stroke="#E05A12" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M10 13 h8 M10 16 h6 M10 19 h7" stroke="#C9823B" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        关卡章节
+      </h2>
+      <button class="btn-close" data-close aria-label="关闭">✕</button>
+    </div>
+    <div class="panel-note">主线共 4 章 + 无限模式。关卡类型：普通 / 商店 / 事件 / 精英（约第 4 关）/ Boss（约第 8 关）。土地只在精英关补充；普通作战关只送卡包。</div>
+    <div class="cards">
+      <!-- 第一章：已解锁（可演示），其余锁定 -->
+      <div class="card">
+        <h3>🌿 第 1 章 · 草原兽潮</h3>
+        <span class="tag">进行中 · 8 关</span>
+        <div class="progress-track" style="margin:8px 0;"><div class="progress-fill"></div></div>
+        <ul>
+          <li>开局 4 块土地 · 初始卡包五选二</li>
+          <li>第 4 关 <b>精英关</b>：+1 土地</li>
+          <li>第 8 关 <b>Boss</b>：草原狼王</li>
+        </ul>
+      </div>
+      <div class="card" style="opacity:.7;">
+        <h3>🏜️ 第 2 章 · 沙漠劫掠</h3>
+        <span class="tag">未解锁</span>
+        <ul><li>通关第 1 章后开放</li></ul>
+      </div>
+      <div class="card" style="opacity:.7;">
+        <h3>🦠 第 3 章 · 沼泽瘟疫</h3>
+        <span class="tag">未解锁</span>
+        <ul><li>敌人获得百分比伤害 / 穿透手段</li></ul>
+      </div>
+      <div class="card" style="opacity:.7;">
+        <h3>❄️ 第 4 章 · 冰原亡灵</h3>
+        <span class="tag">未解锁</span>
+        <ul><li>最终章 · 最强敌人</li></ul>
+      </div>
+      <div class="card" style="opacity:.7;">
+        <h3>♾️ 无限模式</h3>
+        <span class="tag">未解锁</span>
+        <ul><li>通关 4 章后开启，关卡无限循环、难度持续上升</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     商店面板
+     ================================================================ -->
+<section class="overlay hidden" id="panel-shop" role="dialog" aria-modal="true" aria-label="王国商店">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>
+        <!-- 购物袋图标 -->
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 8 h14 l-1 13 H6 Z" fill="#FFC97A" stroke="#C9823B" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M8 8 a4 4 0 0 1 8 0" fill="none" stroke="#C9823B" stroke-width="2"/>
+        </svg>
+        王国商店
+      </h2>
+      <button class="btn-close" data-close aria-label="关闭">✕</button>
+    </div>
+    <div class="panel-note">商店规则（已定）：货币为 <b>金币</b>（招募 / 买卡 / 买地 / 道具）与 <b>粮食</b>（军队每回合维持费）。以下价格与库存为占位演示，待「数值体系」落地后替换。</div>
+    <div class="cards">
+      <div class="card shop-item">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <rect x="8" y="14" width="48" height="36" rx="6" fill="#B98A5F"/>
+          <path d="M16 14 V34 H48 V14" fill="#D9A05C"/>
+          <rect x="24" y="22" width="16" height="4" rx="2" fill="#FFF6E5"/>
+          <circle cx="50" cy="38" r="6" fill="#FFC94D" stroke="#E8A020" stroke-width="2"/>
+        </svg>
+        <div class="label" style="text-align:left">
+          <b>卡包</b> · 三选一 <span class="badge-soon">演示</span>
+          <div class="price">价格待定 · 金币</div>
+        </div>
+      </div>
+      <div class="card shop-item">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <rect x="14" y="34" width="36" height="18" rx="4" fill="#8A6F55"/>
+          <path d="M18 34 V20 Q32 12 46 20 V34" fill="#6FBF6B" stroke="#4FA857" stroke-width="2"/>
+          <circle cx="32" cy="28" r="4" fill="#FFF3C4"/>
+        </svg>
+        <div class="label" style="text-align:left">
+          <b>土地</b> · 精英关也可获得 <span class="badge-soon">演示</span>
+          <div class="price">价格待定 · 金币</div>
+        </div>
+      </div>
+      <div class="card shop-item">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <circle cx="32" cy="32" r="22" fill="#FFE8D2" stroke="#E8B56C" stroke-width="2"/>
+          <path d="M32 16 L36 28 L48 28 L38 36 L42 48 L32 40 L22 48 L26 36 L16 28 L28 28 Z" fill="#FFC94D"/>
+        </svg>
+        <div class="label" style="text-align:left">
+          <b>道具（未定）</b> <span class="badge-soon">占位</span>
+          <div class="price">敬请期待</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     设置面板
+     ================================================================ -->
+<section class="overlay hidden" id="panel-settings" role="dialog" aria-modal="true" aria-label="设置">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>⚙️ 设置</h2>
+      <button class="btn-close" data-close aria-label="关闭">✕</button>
+    </div>
+    <div class="panel-note">所有设置仅保存在当前会话内存中（刷新即恢复默认，符合单文件沙箱交付预期）。</div>
+    <!-- 每行一个开关：切换后写入内存 store -->
+    <div class="setting-row">
+      <div>
+        <div class="s-title">音乐</div>
+        <div class="s-desc">王都主题曲</div>
+      </div>
+      <label class="switch"><input type="checkbox" data-setting="music" checked><span class="knob"></span></label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="s-title">音效</div>
+        <div class="s-desc">合成 / 战斗 / 按钮音效</div>
+      </div>
+      <label class="switch"><input type="checkbox" data-setting="sound" checked><span class="knob"></span></label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="s-title">震动反馈</div>
+        <div class="s-desc">手机端按键震动（沙箱演示环境不触发）</div>
+      </div>
+      <label class="switch"><input type="checkbox" data-setting="vibration"><span class="knob"></span></label>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="s-title">画面品质</div>
+        <div class="s-desc">高 / 中 / 低（动效与装饰密度）</div>
+      </div>
+      <!-- 品质用文字按钮组代替下拉，避免额外控件复杂度 -->
+      <div style="display:flex;gap:6px;">
+        <button class="stat-pill atk q-btn" data-quality="high">高</button>
+        <button class="stat-pill hp q-btn" data-quality="mid">中</button>
+        <button class="stat-pill q-btn q-off" data-quality="low">低</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="s-title">语言</div>
+        <div class="s-desc">界面语言（当前仅中文）</div>
+      </div>
+      <span style="font-weight:800;color:var(--ink-soft);">简体中文</span>
+    </div>
+    <!-- 重置进度：内存态下仅清空当前会话的演示选择 -->
+    <div style="margin-top:14px;text-align:right;">
+      <button class="menu-btn" data-reset style="width:auto;padding:10px 18px;font-size:14px;">
+        重置演示设置
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- Toast 轻提示 -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* =====================================================================
+   动物王国 - 首页交互脚本
+   ---------------------------------------------------------------------
+   设计约束（沙箱 iframe 运行时）：
+   - 禁止 localStorage / sessionStorage / cookie / alert / window.open 等 API
+   - 会话状态一律存放于内存 store；刷新回到初始值属预期
+   - 视图切换使用内存 currentView 驱动显示 / 隐藏
+   ===================================================================== */
+
+/* ---- 1. 内存 Store：唯一状态源 ---- */
+/* 所有需要“记住”的会话状态（音乐、音效、当前视图等）都放在这里 */
+var store = createMemoryStore({
+  view: 'main',        // 当前视图：main / play / index / levels / shop / settings
+  music: true,         // 音乐开关（内存态）
+  sound: true,         // 音效开关（内存态）
+  vibration: false,    // 震动开关（内存态）
+  quality: 'high',     // 画质：high / mid / low（内存态）
+  toastTimer: null     // toast 自动隐藏定时器句柄
+});
+
+/* 创建一个极简内存状态容器（替代 localStorage 的内存实现） */
+function createMemoryStore(initial) {
+  var state = Object.assign({}, initial);
+  return {
+    get: function (key) { return key === undefined ? state : state[key]; },
+    set: function (patch) { Object.assign(state, patch); }
+  };
+}
+
+/* ---- 2. DOM 快捷查询工具 ---- */
+var $ = function (selector) { return document.querySelector(selector); };
+var $$ = function (selector) { return Array.prototype.slice.call(document.querySelectorAll(selector)); };
+
+/* ---- 3. 入场加载画面 ---- */
+/* 依次播报“加载插件 / 技能 / 军队数据 / 王都地图”，完成后进入主菜单 */
+(function startLoader() {
+  var tips = ['正在加载插件与技能', '正在载入军队数据', '正在绘制王都地图', '准备出发！'];
+  var bar = $('#loadBar');
+  var tip = $('#loadTip');
+  var step = 0;
+  var timer = setInterval(function () {
+    step += 1;
+    if (bar) bar.style.width = Math.min(step * 25, 100) + '%';   // 进度条按 25% 步进
+    if (tip && tips[Math.min(step - 1, tips.length - 1)]) tip.textContent = tips[Math.min(step - 1, tips.length - 1)];
+    if (step >= 4) {
+      clearInterval(timer);
+      setTimeout(function () {
+        var loader = $('#loader');
+        var app = $('#app');
+        if (loader) loader.classList.add('hidden');   // 隐藏加载画面
+        if (app) app.classList.remove('hidden');      // 显示主舞台
+      }, 350);
+    }
+  }, 420);
+})();
+
+/* ---- 4. 视图切换 ---- */
+/* 对应视图 id 到面板元素 id 的映射；'main' 对应主舞台 */
+var VIEW_MAP = {
+  'play': 'panel-play',
+  'index': 'panel-index',
+  'levels': 'panel-levels',
+  'shop': 'panel-shop',
+  'settings': 'panel-settings'
+};
+
+/* 显示某个视图：主菜单显示舞台，其他视图打开对应 overlay */
+function showView(viewId) {
+  store.set({ view: viewId });
+  var showMain = viewId === 'main';
+  $('#app').classList.toggle('hidden', !showMain);
+  Object.keys(VIEW_MAP).forEach(function (key) {
+    var el = $('#' + VIEW_MAP[key]);
+    if (el) el.classList.toggle('hidden', key !== viewId);
+  });
+  /* 打开 overlay 时把焦点放到第一个可聚焦控件，方便键盘用户 */
+  if (!showMain) {
+    var panel = $('#' + VIEW_MAP[viewId]);
+    if (panel) {
+      var focusable = panel.querySelector('button, input, [tabindex]');
+      if (focusable) focusable.focus({ preventScroll: true });
+    }
+  }
+}
+
+/* 菜单按钮点击 → 切换视图 */
+$$('.menu-btn[data-view]').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    showView(btn.getAttribute('data-view'));
+  });
+});
+
+/* 关闭按钮（data-close）→ 返回主菜单 */
+$$('[data-close]').forEach(function (btn) {
+  btn.addEventListener('click', function () { showView('main'); });
+});
+
+/* 键盘：Esc 关闭当前 overlay 并返回主菜单 */
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'Escape' && store.get('view') !== 'main') showView('main');
+});
+
+/* ---- 5. 设置交互 ---- */
+/* 音乐 / 音效 / 震动：checkbox 状态写入内存 store */
+$$('input[data-setting]').forEach(function (input) {
+  input.addEventListener('change', function () {
+    var key = input.getAttribute('data-setting');
+    store.set({ [key]: input.checked });
+    /* 演示反馈：切换音效时给出 toast（不使用 alert） */
+    if (key === 'sound') showToast(input.checked ? '音效已开启' : '音效已关闭');
+    if (key === 'music') showToast(input.checked ? '音乐已开启' : '音乐已关闭');
+  });
+});
+
+/* 画质按钮：点击高亮当前档位 */
+var QUALITY_LABEL = { high: '画质：高', mid: '画质：中', low: '画质：低' };
+$$('.q-btn').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var level = btn.getAttribute('data-quality');
+    store.set({ quality: level });
+    refreshQualityButtons();
+    showToast(QUALITY_LABEL[level]);
+  });
+});
+function refreshQualityButtons() {
+  var current = store.get('quality');
+  $$('.q-btn').forEach(function (btn) {
+    var level = btn.getAttribute('data-quality');
+    var active = level === current;
+    btn.style.opacity = active ? '1' : '0.45';
+    btn.style.outline = active ? '2px solid #5B4636' : 'none';
+  });
+}
+
+/* 重置演示设置：恢复到初始化状态并刷新 UI */
+$$('[data-reset]').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    store.set({ music: true, sound: true, vibration: false, quality: 'high' });
+    $$('input[data-setting]').forEach(function (input) {
+      input.checked = store.get(input.getAttribute('data-setting'));
+    });
+    refreshQualityButtons();
+    showToast('演示设置已重置');
+  });
+});
+
+/* 初始化画质按钮高亮 */
+refreshQualityButtons();
+
+/* ---- 6. Toast 轻提示 ---- */
+/* 页内 toast：替代 alert，展示操作反馈，2 秒后自动消失 */
+function showToast(message) {
+  var toast = $('#toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add('show');
+  clearTimeout(store.get('toastTimer'));
+  store.set({ toastTimer: setTimeout(function () { toast.classList.remove('show'); }, 2000) });
+}
+</script>
+</body>
+</html>
